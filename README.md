@@ -44,7 +44,13 @@ Projekte werden angelegt, wenn Schriftverkehr ansteht, nicht auf Vorrat.
 ## Prüfen
 
 ```bash
-python3 werkzeuge/pruefe_vorlage.py vorlagen/<name>
+python3 werkzeuge/pruefe_vorlage.py vorlagen/<name>    # Vorlage gegen felder.yaml
+python3 -m unittest discover tests                     # Platzhalterersetzung
 ```
 
-Meldet Platzhalter ohne Felddefinition und Felder ohne Platzhalter.
+Die Tests sichern das Stück ab, an dem ein Fehler still bleibt: über Runs
+verteilte Platzhalter, optionale Blöcke, Werktagsfristen. Ein Schreiben mit
+falschem Wert sieht fertig aus – deshalb hier ein Netz.
+
+Abhängigkeiten (`python-docx`, `PyYAML`) installiert der SessionStart-Hook in
+`.claude/hooks/` automatisch. Lokal: `pip install -r requirements.txt`.
