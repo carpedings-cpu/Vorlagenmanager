@@ -1,0 +1,9 @@
+# Fertige Schreiben gehören in eure Ablage, nicht in die Repo-Historie.
+# Der Ordner bleibt, der Inhalt nicht.
+ausgang/*
+!ausgang/.gitkeep
+
+__pycache__/
+*.pyc
+.DS_Store
+~$*

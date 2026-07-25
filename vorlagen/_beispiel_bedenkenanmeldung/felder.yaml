@@ -1,0 +1,122 @@
+# BEISPIELVORLAGE – zeigt alle fünf Quellenarten an einem realen Schreiben.
+# Dient als Muster für die echten Vorlagen. Kann danach gelöscht werden.
+
+name: Bedenkenanmeldung nach § 4 Abs. 3 VOB/B
+kuerzel: BED
+dokumententyp: Bedenkenanmeldung
+datei: vorlage.md          # bei echten Vorlagen: vorlage.docx
+mail: mail.md
+
+felder:
+  # --- aus den Projektstammdaten -------------------------------------------
+  - key: bauvorhaben
+    label: Bauvorhaben
+    quelle: projekt
+    pfad: bauvorhaben
+
+  - key: ag_firma
+    label: Auftraggeber
+    quelle: projekt
+    pfad: auftraggeber.firma
+
+  - key: ag_zusatz
+    label: Adresszusatz Auftraggeber
+    quelle: projekt
+    pfad: auftraggeber.zusatz
+    pflicht: false
+
+  - key: ag_strasse
+    label: Straße Auftraggeber
+    quelle: projekt
+    pfad: auftraggeber.strasse
+
+  - key: ag_plz
+    label: PLZ Auftraggeber
+    quelle: projekt
+    pfad: auftraggeber.plz
+
+  - key: ag_ort
+    label: Ort Auftraggeber
+    quelle: projekt
+    pfad: auftraggeber.ort
+
+  - key: ag_anrede
+    label: Briefanrede
+    quelle: projekt
+    pfad: auftraggeber.anrede
+
+  - key: ag_email
+    label: E-Mail Auftraggeber
+    quelle: projekt
+    pfad: auftraggeber.email
+
+  - key: aktenzeichen
+    label: Aktenzeichen
+    quelle: projekt
+    pfad: intern.aktenzeichen
+
+  - key: projektnummer
+    label: Projektnummer
+    quelle: projekt
+    pfad: projektnummer
+
+  - key: vertragsnummer
+    label: Vertrags-/Bestellnummer des AG
+    quelle: projekt
+    pfad: vertrag.nummer
+
+  # --- aus den Vertragsdateien, mit Fundstelle ------------------------------
+  - key: vertragsdatum
+    label: Datum des Vertrags
+    quelle: vertrag
+    typ: datum
+    suchhinweis: "Datum der Auftragsbestätigung bzw. der Vertragsurkunde"
+    dateien: [auftragsbestaetigung, vertrag]
+
+  # --- fallspezifisch, wird gefragt -----------------------------------------
+  - key: betroffene_leistung
+    label: Betroffene Leistung
+    quelle: abfrage
+    typ: text
+    frage: "Welche Leistung oder LV-Position ist betroffen?"
+    beispiel: "Pos. 3.14 – Ausgabetheke, Anschluss Kaltwasser"
+
+  - key: bedenken_sachverhalt
+    label: Sachverhalt
+    quelle: abfrage
+    typ: mehrzeilig
+    frage: "Was genau ist der Grund für die Bedenken? Nur Tatsachen, keine Wertung."
+    beispiel: "Die bauseits vorbereitete Zuleitung liegt 40 cm neben der geplanten Anschlussposition."
+
+  - key: bedenken_folge
+    label: Mögliche Folge
+    quelle: abfrage
+    typ: mehrzeilig
+    frage: "Welche Folge droht, wenn so ausgeführt wird?"
+    beispiel: "Die Theke kann nicht dicht angeschlossen werden, Gewährleistung für die Anschlussstelle entfällt."
+
+  - key: abhilfe_vorschlag
+    label: Vorschlag zur Abhilfe
+    quelle: abfrage
+    typ: mehrzeilig
+    pflicht: false
+    frage: "Gibt es einen Lösungsvorschlag? (leer lassen, wenn nicht)"
+
+  # --- berechnet -------------------------------------------------------------
+  - key: datum
+    label: Datum des Schreibens
+    quelle: berechnet
+    formel: "heute"
+    typ: datum
+
+  - key: fristende
+    label: Frist zur Rückmeldung
+    quelle: berechnet
+    formel: "heute + 10 werktage"
+    typ: datum
+
+  # --- immer gleich -----------------------------------------------------------
+  - key: vorbehalt
+    label: Vorbehaltsklausel
+    quelle: fest
+    wert: "Mehrkosten und eine Verlängerung der Ausführungsfristen, die sich aus dem vorgenannten Sachverhalt ergeben, behalten wir uns ausdrücklich vor."

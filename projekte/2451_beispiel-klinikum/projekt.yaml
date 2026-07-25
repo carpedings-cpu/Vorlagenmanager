@@ -1,0 +1,41 @@
+# BEISPIELPROJEKT – erfundene Daten, dient nur dazu, das Gerüst zu testen.
+# Kann gelöscht werden, sobald echte Projekte angelegt sind.
+
+projektnummer: "2451"
+kurzname: "Klinikum Beispielstadt"
+bauvorhaben: "Neubau Zentralküche Klinikum Beispielstadt, Bauteil C"
+bauort:
+  strasse: "Krankenhausweg 12"
+  plz: "12345"
+  ort: "Beispielstadt"
+
+auftraggeber:
+  firma: "Musterbau Generalunternehmung GmbH"
+  zusatz: "Niederlassung Süd"
+  strasse: "Industriestraße 8"
+  plz: "54321"
+  ort: "Musterhausen"
+  ansprechpartner: "Thomas Beispiel"
+  anrede: "Sehr geehrter Herr Beispiel,"
+  email: "t.beispiel@musterbau-beispiel.de"
+
+bauherr:
+  firma: "Klinikum Beispielstadt gGmbH"
+  ort: "Beispielstadt"
+
+vertrag:
+  nummer: "MB-2026-0417"
+  datum: "14.03.2026"
+  art: "VOB/B"
+  auftragssumme: "248.500,00 EUR"
+  zahlungsziel: "30 Tage netto"
+
+termine:
+  ausfuehrungsbeginn: "04.05.2026"
+  fertigstellung: "28.08.2026"
+  abnahme: ""
+
+intern:
+  aktenzeichen: "2451-DZ"
+  projektleiter: "Diana Ziegler"
+  kuerzel: "DZ"

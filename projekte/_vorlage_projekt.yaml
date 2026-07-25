@@ -1,0 +1,44 @@
+# Stammdaten eines Projekts.
+# Kopiere diese Datei nach projekte/<nummer>_<kurzname>/projekt.yaml.
+# Nicht benötigte Felder dürfen leer bleiben oder ganz fehlen.
+
+projektnummer: ""          # z. B. 2451
+kurzname: ""               # z. B. Klinikum XY
+bauvorhaben: ""            # vollständige Bezeichnung, wie sie ins Schreiben gehört
+bauort:
+  strasse: ""
+  plz: ""
+  ort: ""
+
+# Vertragspartner, an den der Schriftverkehr geht
+auftraggeber:
+  firma: ""
+  zusatz: ""               # z. B. Abteilung, Niederlassung
+  strasse: ""
+  plz: ""
+  ort: ""
+  ansprechpartner: ""      # Name ohne Anrede
+  anrede: ""               # vollständige Briefanrede, z. B. "Sehr geehrter Herr Muster,"
+  email: ""
+
+# Nur ausfüllen, wenn der Bauherr nicht der Auftraggeber ist
+bauherr:
+  firma: ""
+  ort: ""
+
+vertrag:
+  nummer: ""               # Vertrags- oder Bestellnummer des AG
+  datum: ""                # TT.MM.JJJJ
+  art: "VOB/B"             # VOB/B oder BGB
+  auftragssumme: ""        # netto, z. B. "248.500,00 EUR"
+  zahlungsziel: ""         # z. B. "30 Tage netto"
+
+termine:
+  ausfuehrungsbeginn: ""   # TT.MM.JJJJ
+  fertigstellung: ""       # TT.MM.JJJJ
+  abnahme: ""              # TT.MM.JJJJ, sobald erfolgt
+
+intern:
+  aktenzeichen: ""         # euer Az. für den Briefkopf
+  projektleiter: ""
+  kuerzel: ""              # Kürzel für den Briefkopf, z. B. DZ
