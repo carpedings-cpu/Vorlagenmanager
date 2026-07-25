@@ -1,6 +1,10 @@
 # Projekte anlegen
 
-Ein Ordner je Projekt, benannt `<projektnummer>_<kurzname>`.
+Ein Ordner je Projekt, benannt `<projektnummer>_<kurzname>`. Anlegen mit:
+
+```bash
+python3 werkzeuge/neues_projekt.py 2451 "Klinikum Beispielstadt"
+```
 
 ```
 projekte/2451_klinikum-xy/
@@ -8,27 +12,31 @@ projekte/2451_klinikum-xy/
   vertrag/        ← Vertragsrelevante Dateien
 ```
 
-## Der schnelle Weg
+## Die projekt.yaml ist der Vertragsauszug
 
-Du musst nicht den ganzen Projektordner bereitstellen. Für den Anfang reicht
-**die Auftragsbestätigung** – darin stehen Auftraggeber, Anschrift, Vertrags­nummer,
-Auftragsdatum und Bauvorhaben. Aus dieser einen Datei lässt sich die
-`projekt.yaml` erzeugen, du liest sie einmal gegen und korrigierst.
+Das ist der Kniff, der den Aufwand klein hält: **Die Vertragswerte, die in
+Schreiben auftauchen, ändern sich pro Projekt nicht.** Vertragsdatum,
+Bestellnummer, Auftragssumme, Zahlungsziel, Ausführungsfristen – einmal
+in die `projekt.yaml`, und ab da braucht kein einziges Schreiben mehr Zugriff
+auf den Vertrag selbst.
+
+Der Weg dahin: **eine Datei pro Projekt**, die Auftragsbestätigung. Darin steht
+fast alles. Du lädst sie einmal hoch, daraus entsteht die `projekt.yaml`,
+du liest sie gegen – fertig. Danach ist das Projekt dauerhaft versorgt, weil
+die YAML im Repo liegt.
 
 Lege Projekte an, wenn Schriftverkehr ansteht – nicht alle auf Vorrat.
+Bei 30 Projekten sind selten mehr als eine Handvoll gleichzeitig aktiv.
 
 ## Was in `vertrag/` gehört
 
-Nur die Dateien, aus denen tatsächlich Werte für Schreiben gezogen werden:
+Der Ordner ist optional. Er ist für den Fall gedacht, dass ein Schreiben einen
+Wert braucht, der **nicht** stabil ist und deshalb nicht in die `projekt.yaml`
+gehört – etwa der Wortlaut einer bestimmten LV-Position oder der Bezug auf
+einen konkreten Nachtrag. Dann legst du für diesen einen Vorgang die betroffene
+Datei dazu.
 
-- Auftragsbestätigung / Vertragsurkunde
-- Leistungsverzeichnis (mindestens die betroffenen Positionen)
-- Bauzeitenplan
-- besondere Vertragsbedingungen, wenn sie von der VOB/B abweichen
-- Nachträge, sobald es welche gibt
-
-Nicht: Fotos, Pläne, Mailverkehr, Protokolle. Die liefern keine Platzhalterwerte
-und machen die Suche nur langsamer.
+Nicht: Fotos, Pläne, Mailverkehr, Protokolle. Die liefern keine Platzhalterwerte.
 
 ## projekt.yaml
 

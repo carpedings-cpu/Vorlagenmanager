@@ -45,6 +45,12 @@ geleitet vom `suchhinweis`. Gefundenen Wert **mit Fundstelle** notieren –
 Dateiname und Seite. Nicht gefunden heißt nicht gefunden; dann wandert das Feld
 in die Abfrage.
 
+Die Projektdateien liegen auf einem Netzlaufwerk, auf das kein Zugriff besteht.
+`vertrag/` ist deshalb meist leer, und das ist in Ordnung: stabile Vertragswerte
+gehören ohnehin in die `projekt.yaml`. Fällt auf, dass ein Feld mit
+`quelle: vertrag` sich innerhalb eines Projekts nie ändert, gehört es dorthin
+verschoben – einmal `pfad` setzen statt jedes Mal fragen.
+
 ### 4. Ausfüll-Übersicht zeigen
 
 | Feld | Wert | Quelle | Status |
@@ -116,14 +122,20 @@ Details zum Schema: `vorlagen/README.md`.
 
 ## Neues Projekt anlegen
 
-Aus der Auftragsbestätigung. `projekte/_vorlage_projekt.yaml` kopieren, aus dem
-Dokument füllen, alles Unsichere leer lassen statt zu raten. Danach die
-ausgefüllte Datei zeigen und um Korrektur bitten – Stammdaten wandern in jedes
-Schreiben, ein Fehler hier vervielfältigt sich.
+Grundlage ist **eine** hochgeladene Datei: die Auftragsbestätigung.
 
-Nur Dateien nach `vertrag/`, die tatsächlich Werte liefern: Auftragsbestätigung,
-LV, Bauzeitenplan, besondere Vertragsbedingungen, Nachträge. Keine Fotos, Pläne
-oder Protokolle.
+```bash
+python3 werkzeuge/neues_projekt.py <nummer> "<Kurzname>"
+```
+
+Dann die `projekt.yaml` aus dem Dokument füllen. Alles Unsichere leer lassen
+statt zu raten – ein leeres Feld wird später gefragt, ein falsches nicht.
+Die ausgefüllte Datei zeigen und um Korrektur bitten: Stammdaten wandern in
+jedes Schreiben, ein Fehler hier vervielfältigt sich.
+
+Lädt Diana mehrere Auftragsbestätigungen auf einmal hoch, alle in einem Durchgang
+abarbeiten und am Ende eine Sammelübersicht zeigen, welche Felder je Projekt
+leer geblieben sind.
 
 ## Voraussetzung
 

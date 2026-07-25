@@ -48,10 +48,16 @@ felder:
 | `quelle` | Bedeutung | Wird gefragt? |
 |---|---|---|
 | `projekt` | Steht in `projekt.yaml`, Feld über `pfad` | nein |
-| `vertrag` | Wird in den Vertragsdateien gesucht, mit Fundstelle belegt | nur zur Bestätigung |
+| `vertrag` | Wird in `vertrag/` gesucht, mit Fundstelle belegt | nur zur Bestätigung |
 | `abfrage` | Fallspezifisch, kommt von dir | ja |
 | `berechnet` | Aus anderen Feldern abgeleitet, z. B. Fristen | nein |
 | `fest` | Immer derselbe Text, steht als `wert` dabei | nein |
+
+**Faustregel: so viel wie möglich auf `projekt`.** Alles, was sich innerhalb
+eines Projekts nicht ändert – auch Vertragsdatum, Auftragssumme oder
+Ausführungsfristen – gehört in die `projekt.yaml` und wird dort einmal gepflegt.
+`quelle: vertrag` ist nur für Werte gedacht, die von Fall zu Fall aus einem
+konkreten Dokument kommen. Je mehr auf `projekt` steht, desto kürzer die Abfrage.
 
 ### Alle Schlüssel
 

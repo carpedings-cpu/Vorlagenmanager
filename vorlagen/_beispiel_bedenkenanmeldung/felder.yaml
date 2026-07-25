@@ -65,13 +65,11 @@ felder:
     quelle: projekt
     pfad: vertrag.nummer
 
-  # --- aus den Vertragsdateien, mit Fundstelle ------------------------------
   - key: vertragsdatum
     label: Datum des Vertrags
-    quelle: vertrag
+    quelle: projekt
+    pfad: vertrag.datum
     typ: datum
-    suchhinweis: "Datum der Auftragsbestätigung bzw. der Vertragsurkunde"
-    dateien: [auftragsbestaetigung, vertrag]
 
   # --- fallspezifisch, wird gefragt -----------------------------------------
   - key: betroffene_leistung
