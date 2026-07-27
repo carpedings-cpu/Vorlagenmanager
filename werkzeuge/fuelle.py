@@ -27,11 +27,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from kern import (  # noqa: E402
+    datenwurzel,
     ersetze_in_docx,
     ersetze_in_markdown,
     felder_nach_key,
     lade_vorlage,
     lade_yaml,
+    projektordner,
     sammle_werte,
 )
 
@@ -78,7 +80,7 @@ def schreibe_mail(meta: dict, werte: dict, ziel: Path) -> Path | None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("vorlage", type=Path)
-    parser.add_argument("projekt", type=Path)
+    parser.add_argument("projekt", help="Projektname oder Pfad zum Projektordner")
     parser.add_argument("--werte", type=Path, help="JSON mit den ermittelten Werten")
     parser.add_argument("--offen", action="store_true", help="offene Felder als JSON ausgeben")
     parser.add_argument("--stichwort", help="Stichwort für den Dateinamen")
@@ -87,7 +89,8 @@ def main() -> int:
     args = parser.parse_args()
 
     meta = lade_vorlage(args.vorlage)
-    projekt = lade_yaml(args.projekt / "projekt.yaml")
+    ordner = projektordner(args.projekt)
+    projekt = lade_yaml(ordner / "projekt.yaml")
     vorgaben = json.loads(args.werte.read_text(encoding="utf-8")) if args.werte else {}
 
     werte, offen = sammle_werte(meta, projekt, vorgaben)
@@ -103,7 +106,7 @@ def main() -> int:
             print(f"  {key}: {felder[key].get('label', key)}", file=sys.stderr)
         return 1
 
-    zielordner = args.ausgabe or Path("ausgang") / args.projekt.name
+    zielordner = args.ausgabe or datenwurzel() / "ausgang" / ordner.name
     zielordner.mkdir(parents=True, exist_ok=True)
     basis = dateiname(meta, projekt, args.stichwort)
 

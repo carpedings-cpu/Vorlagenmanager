@@ -6,6 +6,7 @@ aus und hat trotzdem den falschen Wert drin. Deshalb hier abgesichert.
     python3 -m unittest discover tests
 """
 
+import os
 import sys
 import tempfile
 import unittest
@@ -17,13 +18,46 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "werkzeuge"))
 from kern import (  # noqa: E402
     berechne,
     blockschluessel,
+    datenwurzel,
     ersetze_in_docx,
     ersetze_in_markdown,
     platzhalter,
+    projektordner,
     sammle_werte,
     text_aus_docx,
     wert_aus_pfad,
 )
+
+
+class Datenordner(unittest.TestCase):
+    """Projektdaten liegen außerhalb des Repos - der Pfad muss stimmen."""
+
+    def test_umgebungsvariable_gewinnt(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            alt = os.environ.get("VORLAGENMANAGER_DATEN")
+            os.environ["VORLAGENMANAGER_DATEN"] = tmp
+            try:
+                self.assertEqual(datenwurzel(), Path(tmp))
+            finally:
+                os.environ.pop("VORLAGENMANAGER_DATEN")
+                if alt is not None:
+                    os.environ["VORLAGENMANAGER_DATEN"] = alt
+
+    def test_projekt_wird_ueber_namen_gefunden(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            ordner = Path(tmp) / "projekte" / "2451_test"
+            ordner.mkdir(parents=True)
+            (ordner / "projekt.yaml").write_text("projektnummer: '2451'\n", encoding="utf-8")
+            os.environ["VORLAGENMANAGER_DATEN"] = tmp
+            try:
+                self.assertEqual(projektordner("2451_test"), ordner)
+            finally:
+                os.environ.pop("VORLAGENMANAGER_DATEN")
+
+    def test_unbekanntes_projekt_nennt_die_gesuchten_orte(self):
+        with self.assertRaises(FileNotFoundError) as ctx:
+            projektordner("gibt-es-nicht")
+        self.assertIn("gibt-es-nicht", str(ctx.exception))
 
 
 class Platzhalter(unittest.TestCase):

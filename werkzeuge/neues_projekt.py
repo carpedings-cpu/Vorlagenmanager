@@ -15,6 +15,10 @@ import sys
 import unicodedata
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).parent))
+
+from kern import datenwurzel, repowurzel  # noqa: E402
+
 UMLAUTE = {"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"}
 
 
@@ -32,14 +36,14 @@ def main() -> int:
         return 1
 
     nummer, kurzname = sys.argv[1], sys.argv[2]
-    wurzel = Path(__file__).resolve().parent.parent
-    ziel = wurzel / "projekte" / f"{nummer}_{schluessel(kurzname)}"
+    ziel = datenwurzel() / "projekte" / f"{nummer}_{schluessel(kurzname)}"
 
     if ziel.exists():
         print(f"Gibt es schon: {ziel}", file=sys.stderr)
         return 1
 
-    vorlage = (wurzel / "projekte" / "_vorlage_projekt.yaml").read_text(encoding="utf-8")
+    muster = repowurzel() / "projekte" / "_vorlage_projekt.yaml"
+    vorlage = muster.read_text(encoding="utf-8")
     vorlage = vorlage.replace('projektnummer: ""', f'projektnummer: "{nummer}"')
     vorlage = vorlage.replace('kurzname: ""', f'kurzname: "{kurzname}"')
 

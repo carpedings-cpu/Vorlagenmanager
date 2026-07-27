@@ -1,7 +1,14 @@
-# Fertige Schreiben gehören in eure Ablage, nicht in die Repo-Historie.
-# Der Ordner bleibt, der Inhalt nicht.
-ausgang/*
-!ausgang/.gitkeep
+# Projektdaten liegen außerhalb des Repos, in einem Ordner auf dem eigenen
+# Rechner. Wo genau, steht in .datenpfad - und auch das bleibt lokal.
+.datenpfad
+
+# Falls doch einmal im Repo gearbeitet wird: keine echten Projektdaten
+# und keine fertigen Schreiben einchecken. Beispiel und Muster bleiben.
+projekte/*
+!projekte/README.md
+!projekte/_vorlage_projekt.yaml
+!projekte/2451_beispiel-klinikum/
+ausgang/
 
 __pycache__/
 *.pyc

@@ -2,10 +2,16 @@
 
 Platzhalter haben die Form {{key}}. Sie funktionieren in Markdown-Vorlagen
 und in DOCX-Vorlagen, dort auch in Tabellen sowie Kopf- und Fußzeilen.
+
+Programm und Daten sind getrennt: Vorlagen und Werkzeuge liegen im Repo,
+Projektdaten und fertige Schreiben in einem Ordner außerhalb. Wo dieser
+Ordner liegt, steht in der Datei `.datenpfad` oder in der Umgebungsvariablen
+VORLAGENMANAGER_DATEN.
 """
 
 from __future__ import annotations
 
+import os
 import re
 from datetime import date, timedelta
 from pathlib import Path
@@ -17,6 +23,57 @@ BLOCK_AUF = re.compile(r"^\s*\{\{\?\s*([a-z0-9_]+)\s*\}\}\s*$")
 BLOCK_ZU = re.compile(r"^\s*\{\{/\s*([a-z0-9_]+)\s*\}\}\s*$")
 QUELLEN = {"projekt", "vertrag", "abfrage", "berechnet", "fest"}
 DATUMSFORMAT = "%d.%m.%Y"
+
+
+# --- Wo liegen die Daten? --------------------------------------------------
+
+
+def repowurzel() -> Path:
+    return Path(__file__).resolve().parent.parent
+
+
+def datenwurzel() -> Path:
+    """Ordner mit projekte/ und ausgang/ – bewusst außerhalb des Repos.
+
+    Reihenfolge: Umgebungsvariable, dann die Datei `.datenpfad`, sonst das
+    Repo selbst. Der Rückfall aufs Repo hält das Beispielprojekt lauffähig.
+    """
+    aus_umgebung = os.environ.get("VORLAGENMANAGER_DATEN")
+    if aus_umgebung:
+        return Path(aus_umgebung).expanduser()
+
+    merker = repowurzel() / ".datenpfad"
+    if merker.exists():
+        eintrag = merker.read_text(encoding="utf-8").strip()
+        if eintrag:
+            return Path(eintrag).expanduser()
+
+    return repowurzel()
+
+
+def projektordner(angabe: str | Path) -> Path:
+    """Findet ein Projekt, egal ob als Pfad oder als bloßer Name angegeben.
+
+    Gesucht wird zuerst dort, wo die Angabe hinzeigt, dann unter
+    <datenwurzel>/projekte/ und zuletzt im Repo – damit das Beispiel
+    weiter funktioniert, auch wenn ein Datenpfad gesetzt ist.
+    """
+    angabe = Path(angabe)
+    kandidaten = [angabe]
+    if not angabe.is_absolute():
+        name = angabe.name
+        kandidaten += [
+            datenwurzel() / "projekte" / name,
+            repowurzel() / "projekte" / name,
+        ]
+    for kandidat in kandidaten:
+        if (kandidat / "projekt.yaml").exists():
+            return kandidat
+    raise FileNotFoundError(
+        f"Kein Projekt '{angabe}' gefunden. Gesucht in:\n  "
+        + "\n  ".join(str(k) for k in kandidaten)
+        + "\nDatenpfad setzen: python3 werkzeuge/einrichten.py <Ordner>"
+    )
 
 
 # --- Laden -----------------------------------------------------------------

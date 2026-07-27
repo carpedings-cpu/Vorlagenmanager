@@ -1,10 +1,24 @@
 # Projekte anlegen
 
-Ein Ordner je Projekt, benannt `<projektnummer>_<kurzname>`. Anlegen mit:
+**Echte Projekte gehören nicht in dieses Verzeichnis.** Sie liegen im
+Datenordner auf deinem Rechner, damit keine Vertragsdaten ins Git wandern:
 
 ```bash
+python3 werkzeuge/einrichten.py ~/Desktop/Vorlagenmanager-Daten   # einmalig
 python3 werkzeuge/neues_projekt.py 2451 "Klinikum Beispielstadt"
 ```
+
+Das legt `~/Desktop/Vorlagenmanager-Daten/projekte/2451_klinikum-beispielstadt/`
+an. Hier im Repo bleiben nur diese Anleitung, die Musterdatei und ein
+Beispielprojekt mit erfundenen Daten.
+
+Aufgerufen werden Projekte danach über ihren Namen, nicht über den Pfad:
+
+```bash
+python3 werkzeuge/fuelle.py vorlagen/bedenkenanmeldung 2451_klinikum-beispielstadt --offen
+```
+
+Ein Ordner je Projekt, benannt `<projektnummer>_<kurzname>`.
 
 ```
 projekte/2451_klinikum-xy/

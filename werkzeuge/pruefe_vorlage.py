@@ -24,6 +24,7 @@ from kern import (  # noqa: E402
     lade_vorlage,
     lade_yaml,
     platzhalter,
+    projektordner,
     text_aus_datei,
     wert_aus_pfad,
 )
@@ -104,10 +105,10 @@ def pruefe(ordner: Path, projekt: dict | None) -> tuple[list[str], list[str]]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("vorlagen", nargs="+", type=Path)
-    parser.add_argument("--projekt", type=Path, help="Projektordner zum Gegenprüfen")
+    parser.add_argument("--projekt", help="Projektname oder -ordner zum Gegenprüfen")
     args = parser.parse_args()
 
-    projekt = lade_yaml(args.projekt / "projekt.yaml") if args.projekt else None
+    projekt = lade_yaml(projektordner(args.projekt) / "projekt.yaml") if args.projekt else None
 
     gesamt = 0
     for ordner in args.vorlagen:

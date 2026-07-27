@@ -19,12 +19,32 @@ Vorlage, Werte aus Projektdaten, Vertragsdateien oder der Abfrage.
 4. **Keine neuen Textbausteine erfinden.** Fehlt in der Vorlage ein Absatz,
    sag das – ändere nicht heimlich den Text des Schreibens.
 
+## Wo liegt was
+
+Vorlagen und Werkzeuge liegen im Repo. **Projektdaten und fertige Schreiben
+liegen außerhalb**, in einem Ordner auf Dianas Rechner – Vertragsdaten gehören
+nicht in ein Git-Repository. Den Pfad kennt `werkzeuge/kern.py` über
+`.datenpfad`; Projekte werden deshalb über ihren Namen angesprochen, nicht
+über einen Pfad.
+
+Ist kein Datenpfad gesetzt, meldet sich das beim ersten Projektaufruf. Dann
+einmalig einrichten lassen:
+
+```bash
+python3 werkzeuge/einrichten.py ~/Desktop/Vorlagenmanager-Daten
+```
+
+Läuft diese Session in der Cloud statt lokal, ist der Datenordner nicht
+erreichbar. Dann nicht behelfsmäßig weiterarbeiten, sondern sagen, dass der
+Generator lokal laufen muss – über die Desktop-App oder das CLI.
+
 ## Ablauf
 
 ### 1. Projekt und Vorlage bestimmen
 
-Vorlagen liegen in `vorlagen/<name>/`, Projekte in `projekte/<nummer>_<kurzname>/`.
-Bei Unklarheit die vorhandenen auflisten und fragen.
+Vorlagen liegen in `vorlagen/<name>/`, Projekte im Datenordner unter
+`projekte/<nummer>_<kurzname>/`. Bei Unklarheit die vorhandenen auflisten
+und fragen.
 
 Fehlt das Projekt: anbieten, es aus der Auftragsbestätigung anzulegen
 (siehe „Neues Projekt" unten). Nicht mit einem halb erfundenen Projekt weiterarbeiten.
@@ -87,7 +107,7 @@ python3 werkzeuge/fuelle.py vorlagen/<vorlage> projekte/<projekt> \
 Das Skript bricht ab, solange Pflichtfelder leer sind. Das ist Absicht –
 `--erzwingen` nur, wenn Diana ausdrücklich einen Entwurf mit Lücken will.
 
-Ergebnis landet in `ausgang/<projekt>/`, benannt
+Ergebnis landet im Datenordner unter `ausgang/<projekt>/`, benannt
 `JJJJ-MM-TT_<Projektnummer>_<Dokumententyp>_<Stichwort>`. Weicht die
 Verfahrensanweisung davon ab, gilt der Skill `kpc-dokumentenbenennung`.
 
@@ -96,8 +116,8 @@ Verfahrensanweisung davon ab, gilt der Skill `kpc-dokumentenbenennung`.
 Beide Dateien mit SendUserFile schicken: das Schreiben und den Mail-Entwurf.
 Dazu in zwei Sätzen, was noch zu prüfen ist – insbesondere die 🔍-Felder.
 
-`ausgang/` wird nicht ins Git eingecheckt. Die fertigen Schreiben gehören in
-eure Ablage, nicht in die Repo-Historie.
+Nichts davon wird eingecheckt: Der Datenordner liegt außerhalb des Repos, und
+`ausgang/` ist zusätzlich in der `.gitignore`.
 
 ## Neue Vorlage anlegen
 
