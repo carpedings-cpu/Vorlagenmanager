@@ -488,11 +488,12 @@ class PauschaleNurBeiLangenAufenthalten(unittest.TestCase):
         return ersetze_in_markdown(vorlage.read_text(encoding="utf-8"), werte)
 
     def test_vier_naechte_ohne_pauschalenfrage(self):
-        self.assertNotIn("Pauschale", self._anfrage(4))
+        # Kleingeschrieben suchen: im Text steht "Monteurpauschale"
+        self.assertNotIn("pauschale", self._anfrage(4).lower())
 
     def test_acht_naechte_mit_pauschalenfrage(self):
         text = self._anfrage(8)
-        self.assertIn("Pauschale", text)
+        self.assertIn("Monteurpauschale", text)
         self.assertIn("Bei 8 Nächten", text)
 
     def test_die_uebrigen_punkte_bleiben_in_beiden_faellen(self):
