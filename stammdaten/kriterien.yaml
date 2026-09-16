@@ -1,0 +1,35 @@
+# Was ein Monteurhotel erfüllen muss. Diese Datei ist die Vorgabe im Repo.
+# Eigene Werte kommen in <Datenordner>/hotels/kriterien.yaml und gelten dann
+# vorrangig – so bleiben Anpassungen beim Update erhalten.
+
+# --- harte Kriterien: wer das reißt, fliegt aus der Liste -------------------
+max_entfernung_km: 15          # Luftlinie zur Baustelle
+mindestbewertung: 8.0          # Booking-Skala; 8.0 heißt "sehr gut"
+mindestanzahl_bewertungen: 50  # gegen Ausreißer bei neuen Häusern
+max_preis_pro_nacht: 120       # EUR je Einzelzimmer inkl. Frühstück, 0 = kein Limit
+parkplatz_pflicht: true        # ohne brauchbaren Stellplatz kein Vorschlag
+
+# --- Gewichte der Rangfolge, Summe 100 -------------------------------------
+gewicht_entfernung: 40
+gewicht_preis: 30
+gewicht_bewertung: 20
+gewicht_parken: 10
+
+# --- Standardausstattung, geht so in die Suche ------------------------------
+zimmerart: Einzelzimmer        # ein Zimmer pro Mann, kein Doppelzimmer
+eigenes_bad: true              # Dusche und WC im Zimmer, keine Etagendusche
+fruehstueck: true
+fruehstueck_ab: "06:00"        # früher Baustellenstart, wird pro Hotel geprüft
+freie_stornierung: true        # Termine verschieben sich
+wlan: true
+
+# --- Direktanfrage statt Portal --------------------------------------------
+# Ab dieser Aufenthaltsdauer lohnt die Anfrage beim Hotel: Monteur- und
+# Wochenpauschalen liegen regelmäßig unter dem Portalpreis.
+direktanfrage_ab_naechten: 5
+
+# --- Absender der Direktanfrage --------------------------------------------
+# Gehört in die eigene Kopie im Datenordner, nicht ins Repo.
+absender:
+  name: ""                     # z. B. "Diana Ziegler, Projektleitung"
+  firma: ""                    # z. B. "KPC GmbH, Fulda"

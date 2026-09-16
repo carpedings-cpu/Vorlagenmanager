@@ -1,0 +1,19 @@
+# Wer fährt raus. Kopie liegt im Datenordner unter hotels/monteure.yaml,
+# nicht im Repo: Namen sind Personendaten.
+#
+# Aufgerufen wird über das Kürzel. "Hotel für BHV, KW 41, MK und TS" reicht.
+
+monteure:
+  - kuerzel: MK
+    name: Max Mustermann
+    fahrzeug: Sprinter L3H2           # Hochdach: Tiefgarage fällt aus
+    fahrzeughoehe_m: 2.60
+    raucher: false
+    hinweis: "Frühstück ab 6:00, startet immer früh"
+
+  - kuerzel: TS
+    name: Thomas Schmitt
+    fahrzeug: Vito                    # flach, Tiefgarage wäre möglich
+    fahrzeughoehe_m: 1.95
+    raucher: true
+    hinweis: ""

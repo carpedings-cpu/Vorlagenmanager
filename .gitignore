@@ -10,6 +10,11 @@ projekte/*
 !projekte/2451_beispiel-klinikum/
 ausgang/
 
+# Hotelsuche: Baustellen, Monteure und Buchungen liegen im Datenordner.
+# Landen sie doch einmal hier, bleiben sie draußen - Monteurnamen sind
+# Personendaten. Die Vorlagen in stammdaten/ sind davon nicht betroffen.
+hotels/
+
 __pycache__/
 *.pyc
 .DS_Store

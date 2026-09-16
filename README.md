@@ -17,9 +17,11 @@ Programm; die Projektdaten liegen in einem Ordner auf dem eigenen Rechner.
 | Ordner | Inhalt |
 |---|---|
 | `vorlagen/` | Je Schreiben ein Ordner: die DOCX-Vorlage, `felder.yaml`, `mail.md` |
-| `werkzeuge/` | Skripte zum Einrichten, Prüfen und Ausfüllen |
-| `tests/` | Regressionstests der Platzhalterersetzung |
+| `werkzeuge/` | Skripte zum Einrichten, Prüfen, Ausfüllen und Hotelsuchen |
+| `stammdaten/` | Suchkriterien und Vorlagen für Baustellen und Monteure |
+| `tests/` | Regressionstests der Platzhalterersetzung und der Hotelsuche |
 | `.claude/skills/schriftverkehr/` | Der Skill, der die Generierung steuert |
+| `.claude/skills/monteurhotel/` | Der Skill für die Hotelsuche |
 
 **Im Datenordner, z. B. `~/Desktop/Vorlagenmanager-Daten/`:**
 
@@ -27,6 +29,7 @@ Programm; die Projektdaten liegen in einem Ordner auf dem eigenen Rechner.
 |---|---|
 | `projekte/` | Je Projekt: `projekt.yaml` (Stammdaten) + `vertrag/` (bei Bedarf) |
 | `ausgang/` | Die generierten Schreiben, nach Projekt sortiert |
+| `hotels/` | `baustellen.yaml`, `monteure.yaml`, `buchungen.yaml` |
 
 Einmalig einrichten:
 
@@ -66,6 +69,36 @@ Siehe [`projekte/README.md`](projekte/README.md). Kurzfassung: Es reicht die
 Auftragsbestätigung – daraus lässt sich die `projekt.yaml` erzeugen.
 Projekte werden angelegt, wenn Schriftverkehr ansteht, nicht auf Vorrat.
 
+## Hotels für Monteure
+
+Zweiter Teil im selben Repo: Unterkunft für eine Montage finden, ohne bei
+jeder Suche wieder Adressen einzutippen. Baustellen und Monteure stehen einmal
+in den Stammdaten, danach reicht ein Aufruf.
+
+```bash
+python3 werkzeuge/hotelsuche.py auftrag BHV 12.10.2026 16.10.2026 --monteure MK TS
+```
+
+Gesucht wird im Radius um die Baustellenkoordinate, nicht nach Ortsnamen: Ein
+Hotel „in Fulda" kann zwölf Kilometer und zwei Ortsdurchfahrten entfernt
+liegen. Die Verfügbarkeit kommt live aus der Hotelsuche, gefiltert auf
+Einzelzimmer mit Dusche und WC, Frühstück, Parkplatz und mindestens gute
+Bewertung. Bewertet und sortiert wird hier im Repo, nachvollziehbar aus
+Entfernung, Preis je Zimmer und Nacht, Bewertung und Parkplatz.
+
+Der Punkt, an dem Portale nicht weiterhelfen, ist der Stellplatz. „Parkplatz
+vorhanden" sagt nichts über die Durchfahrtshöhe, und ein Sprinter mit Hochdach
+misst rund 2,60 m gegen 2,00 m in einer üblichen Tiefgarage. Hotels mit reinem
+Parkhaus fallen deshalb raus, sobald ein hohes Fahrzeug mitfährt; unklare
+Angaben werden zum Nachfragen markiert statt stillschweigend akzeptiert.
+
+Ab fünf Nächten kommt zusätzlich die Direktanfrage ans Hotel dazu, weil
+Monteurpauschalen regelmäßig unter dem Portalpreis liegen. Jede Buchung landet
+in `buchungen.yaml` samt Fazit, und beim nächsten Einsatz am selben Ort steht
+oben, was dort funktioniert hat.
+
+Details: [`stammdaten/README.md`](stammdaten/README.md).
+
 ## Prüfen
 
 ```bash
@@ -75,7 +108,9 @@ python3 -m unittest discover tests                     # Platzhalterersetzung
 
 Die Tests sichern das Stück ab, an dem ein Fehler still bleibt: über Runs
 verteilte Platzhalter, optionale Blöcke, Werktagsfristen. Ein Schreiben mit
-falschem Wert sieht fertig aus – deshalb hier ein Netz.
+falschem Wert sieht fertig aus – deshalb hier ein Netz. Für die Hotelsuche
+gilt dasselbe: Entfernung zum falschen Punkt, ein Parkhaus, das als Stellplatz
+durchgeht, ein Nachtpreis, der Zimmer und Nächte verwechselt.
 
 Abhängigkeiten (`python-docx`, `PyYAML`) installiert der SessionStart-Hook in
 `.claude/hooks/` automatisch. Lokal: `pip install -r requirements.txt`.
