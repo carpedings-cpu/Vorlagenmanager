@@ -68,6 +68,36 @@ def lade_monteure() -> list[dict]:
     return _lade_stammdatei("monteure.yaml", "monteure")
 
 
+def lade_hoehen() -> dict:
+    """Bekannte Durchfahrtshöhen je Hotel-ID, aus früheren Rückfragen.
+
+    Die Höhe steht in keiner Ausstattungsliste und muss beim Haus erfragt
+    werden. Einmal erfragt, gilt sie weiter: Ein Parkhaus wird nicht höher.
+    Ohne dieses Verzeichnis fragt man bei jedem Einsatz dieselben Hotels
+    noch einmal ab.
+    """
+    pfad = hotelordner() / "hoehen.yaml"
+    if not pfad.exists():
+        return {}
+    roh = lade_yaml(pfad).get("hoehen", {}) or {}
+    return {int(hotel_id): eintrag for hotel_id, eintrag in roh.items()}
+
+
+def speichere_hoehe(hotel_id: int, meter: float, name: str = "", quelle: str = "") -> Path:
+    pfad = hotelordner() / "hoehen.yaml"
+    pfad.parent.mkdir(parents=True, exist_ok=True)
+    bestand = lade_yaml(pfad).get("hoehen", {}) if pfad.exists() else {}
+    bestand[int(hotel_id)] = {
+        "name": name,
+        "meter": float(meter),
+        "geprueft_am": date.today().strftime(DATUMSFORMAT),
+        "quelle": quelle or "Rückfrage beim Haus",
+    }
+    with pfad.open("w", encoding="utf-8") as f:
+        yaml.safe_dump({"hoehen": bestand}, f, allow_unicode=True, sort_keys=True)
+    return pfad
+
+
 def lade_kriterien() -> dict:
     """Suchkriterien: erst die Vorgabe aus dem Repo, dann eigene Werte darüber."""
     grund = lade_yaml(repowurzel() / "stammdaten" / "kriterien.yaml")
@@ -327,6 +357,7 @@ def auswerten(
     anzahl_naechte: int,
     kriterien: dict | None = None,
     fahrzeughoehe_m: float = SPRINTERHOEHE_M,
+    hoehen: dict | None = None,
 ) -> list[Treffer]:
     """Rechnet Entfernung und Nachtpreis, prüft die Kriterien, sortiert.
 
@@ -334,6 +365,7 @@ def auswerten(
     Wenn im Umkreis nichts Passendes frei ist, will man sehen, woran es lag.
     """
     kriterien = kriterien or lade_kriterien()
+    hoehen = lade_hoehen() if hoehen is None else hoehen
     koord = baustelle.get("koordinaten") or {}
     b_lat, b_lon = _zahl(koord.get("lat")), _zahl(koord.get("lon"))
     if not b_lat or not b_lon:
@@ -346,7 +378,14 @@ def auswerten(
         baustelle.get("max_entfernung_km") or kriterien.get("max_entfernung_km"), 25.0
     )
     min_bewertung = _zahl(kriterien.get("mindestbewertung"), 8.0)
-    max_nacht = _zahl(kriterien.get("max_preis_pro_nacht"), 0.0)
+    # In Berlin bleibt bei 120 EUR fast nichts übrig, in Marburg ist der Wert
+    # großzügig. Deshalb darf die Baustelle ihn überschreiben, wie den Radius.
+    max_nacht = _zahl(
+        baustelle.get("max_preis_pro_nacht")
+        if baustelle.get("max_preis_pro_nacht") is not None
+        else kriterien.get("max_preis_pro_nacht"),
+        0.0,
+    )
     min_anzahl = int(_zahl(kriterien.get("mindestanzahl_bewertungen"), 0))
     parken_pflicht = bool(kriterien.get("parkplatz_pflicht", True))
 
@@ -371,7 +410,25 @@ def auswerten(
         hat_bewertung = bewertung_daten.get("review_score") is not None
         bewertung = _zahl(bewertung_daten.get("review_score"))
         anzahl_bew = int(_zahl(bewertung_daten.get("number_of_reviews")))
+        hotel_id = int(_zahl(roh.get("id")))
         park = beurteile_parkplatz(ausstattung, fahrzeughoehe_m)
+
+        # Eine schon erfragte Höhe schlägt jede Ableitung aus der Ausstattung.
+        bekannt = hoehen.get(hotel_id)
+        if bekannt:
+            gemessen = _zahl(bekannt.get("meter"))
+            am = bekannt.get("geprueft_am", "")
+            if gemessen and gemessen < fahrzeughoehe_m:
+                park = Parkurteil(
+                    "kritisch",
+                    f"Durchfahrt {gemessen:.2f} m, erfragt am {am}"
+                    if am
+                    else f"Durchfahrt {gemessen:.2f} m",
+                )
+            elif gemessen:
+                park = Parkurteil(
+                    "ok", f"Durchfahrt {gemessen:.2f} m, erfragt am {am}"
+                )
 
         gruende = []
         if entfernung > max_entfernung:
@@ -392,7 +449,7 @@ def auswerten(
         ergebnis.append(
             Treffer(
                 name=roh.get("name", "?"),
-                hotel_id=int(_zahl(roh.get("id"))),
+                hotel_id=hotel_id,
                 adresse=ort_daten.get("address", ""),
                 plz=str(ort_daten.get("postal_code", "")),
                 ort=ort_daten.get("city_name", ""),
@@ -411,13 +468,16 @@ def auswerten(
             )
         )
 
-    _punkte_vergeben(ergebnis, kriterien, max_entfernung)
+    _punkte_vergeben(ergebnis, kriterien, max_entfernung, max_nacht)
     ergebnis.sort(key=lambda t: (not t.geeignet, -t.punkte))
     return ergebnis
 
 
 def _punkte_vergeben(
-    treffer: list[Treffer], kriterien: dict, max_entfernung: float
+    treffer: list[Treffer],
+    kriterien: dict,
+    max_entfernung: float,
+    max_nacht: float = 0.0,
 ) -> None:
     """Punktet Entfernung, Preis, Bewertung und Parkplatz auf einer 0..100-Skala.
 
@@ -439,7 +499,7 @@ def _punkte_vergeben(
     # Bezugsgröße ist das Preislimit, nicht die Spanne der Treffer. Sonst wird
     # aus vier Euro Unterschied zwischen zwei Hotels die volle Punktzahl, und
     # ein Haus acht Kilometer weiter draußen gewinnt wegen fast nichts.
-    bezug = _zahl(kriterien.get("max_preis_pro_nacht"), 0.0) or teuerst
+    bezug = max_nacht or _zahl(kriterien.get("max_preis_pro_nacht"), 0.0) or teuerst
 
     for t in treffer:
         nah = 1 - min(t.entfernung_km / max_entfernung, 1.0) if max_entfernung else 0.0

@@ -371,3 +371,94 @@ class HoeheWirdNichtBehauptet(unittest.TestCase):
         treffer = auswerten([hotel("Passt", 53.5400, 8.5810, 300)], BAUSTELLE,
                             zimmer=1, anzahl_naechte=4, kriterien=KRITERIEN)
         self.assertIn("Durchfahrtshöhe", uebersicht(treffer))
+
+
+class PreislimitJeBaustelle(unittest.TestCase):
+    """Berlin braucht andere Zahlen als Marburg."""
+
+    BERLIN = {
+        "kurzname": "Upbeat Berlin",
+        "koordinaten": {"lat": 52.5368, "lon": 13.3602},
+        "max_entfernung_km": 8,
+        "max_preis_pro_nacht": 160,
+    }
+
+    @staticmethod
+    def _berliner_hotel(preis_gesamt):
+        # 3 Zimmer, 4 Nächte
+        return hotel("Berliner Haus", 52.5400, 13.3610, preis_gesamt, bewertung=8.5)
+
+    def test_baustelle_hebt_das_limit_an(self):
+        # 1740 EUR / 3 / 4 = 145 EUR, über den globalen 120, unter den 160 hier
+        treffer = auswerten([self._berliner_hotel(1740)], self.BERLIN, zimmer=3,
+                            anzahl_naechte=4, kriterien=KRITERIEN)
+        self.assertTrue(treffer[0].geeignet, treffer[0].ausschluss)
+
+    def test_ueber_dem_eigenen_limit_fliegt_trotzdem_raus(self):
+        # 2040 / 3 / 4 = 170 EUR, auch über den 160 der Baustelle
+        treffer = auswerten([self._berliner_hotel(2040)], self.BERLIN, zimmer=3,
+                            anzahl_naechte=4, kriterien=KRITERIEN)
+        self.assertFalse(treffer[0].geeignet)
+        self.assertIn("160", treffer[0].ausschluss)
+
+    def test_ohne_eigenen_wert_gilt_die_vorgabe(self):
+        ohne = dict(self.BERLIN)
+        del ohne["max_preis_pro_nacht"]
+        treffer = auswerten([self._berliner_hotel(1740)], ohne, zimmer=3,
+                            anzahl_naechte=4, kriterien=KRITERIEN)
+        self.assertFalse(treffer[0].geeignet)
+        self.assertIn("120", treffer[0].ausschluss)
+
+    def test_null_als_eigener_wert_hebt_das_limit_auf(self):
+        ohne_limit = dict(self.BERLIN, max_preis_pro_nacht=0)
+        treffer = auswerten([self._berliner_hotel(3600)], ohne_limit, zimmer=3,
+                            anzahl_naechte=4, kriterien=KRITERIEN)
+        self.assertTrue(treffer[0].geeignet, treffer[0].ausschluss)
+
+
+class BekannteHoehen(unittest.TestCase):
+    """Einmal erfragt, gilt weiter. Ein Parkhaus wird nicht höher."""
+
+    @staticmethod
+    def _haus(hid=77):
+        # Ausstattung sagt "eigener Stellplatz", die erfragte Höhe sagt etwas anderes
+        return hotel("Sieht gut aus", 53.5400, 8.5810, 300,
+                     ausstattung=["Privatparkplatz", "Parken vor Ort"], hid=hid)
+
+    def test_erfragte_hoehe_schlaegt_die_ausstattungsliste(self):
+        hoehen = {77: {"meter": 2.00, "geprueft_am": "16.09.2026"}}
+        treffer = auswerten([self._haus()], BAUSTELLE, zimmer=1, anzahl_naechte=4,
+                            kriterien=KRITERIEN, fahrzeughoehe_m=2.35, hoehen=hoehen)
+        self.assertFalse(treffer[0].geeignet)
+        self.assertIn("2.00 m", treffer[0].ausschluss)
+
+    def test_ausschlussgrund_nennt_das_pruefdatum(self):
+        hoehen = {77: {"meter": 1.80, "geprueft_am": "16.09.2026"}}
+        treffer = auswerten([self._haus()], BAUSTELLE, zimmer=1, anzahl_naechte=4,
+                            kriterien=KRITERIEN, fahrzeughoehe_m=2.35, hoehen=hoehen)
+        self.assertIn("16.09.2026", treffer[0].ausschluss)
+
+    def test_ausreichende_hoehe_laesst_das_haus_durch(self):
+        hoehen = {77: {"meter": 3.20, "geprueft_am": "16.09.2026"}}
+        treffer = auswerten([self._haus()], BAUSTELLE, zimmer=1, anzahl_naechte=4,
+                            kriterien=KRITERIEN, fahrzeughoehe_m=2.35, hoehen=hoehen)
+        self.assertTrue(treffer[0].geeignet, treffer[0].ausschluss)
+        self.assertIn("3.20 m", treffer[0].park.hinweis)
+
+    def test_ohne_eintrag_bleibt_es_bei_der_ableitung(self):
+        treffer = auswerten([self._haus()], BAUSTELLE, zimmer=1, anzahl_naechte=4,
+                            kriterien=KRITERIEN, fahrzeughoehe_m=2.35, hoehen={})
+        self.assertIn("unbestätigt", treffer[0].park.hinweis)
+
+    def test_eintrag_gilt_nur_fuer_das_eigene_haus(self):
+        hoehen = {999: {"meter": 1.80, "geprueft_am": "16.09.2026"}}
+        treffer = auswerten([self._haus(hid=77)], BAUSTELLE, zimmer=1,
+                            anzahl_naechte=4, kriterien=KRITERIEN,
+                            fahrzeughoehe_m=2.35, hoehen=hoehen)
+        self.assertTrue(treffer[0].geeignet)
+
+    def test_flaches_fahrzeug_kommt_durch_dieselbe_einfahrt(self):
+        hoehen = {77: {"meter": 2.00, "geprueft_am": "16.09.2026"}}
+        treffer = auswerten([self._haus()], BAUSTELLE, zimmer=1, anzahl_naechte=4,
+                            kriterien=KRITERIEN, fahrzeughoehe_m=1.95, hoehen=hoehen)
+        self.assertTrue(treffer[0].geeignet, treffer[0].ausschluss)

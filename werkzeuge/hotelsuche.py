@@ -85,7 +85,10 @@ def _auftrag_bauen(args: argparse.Namespace) -> dict:
             "radius_km": radius,
             "mindestbewertung": hotels._zahl(kriterien.get("mindestbewertung"), 8.0),
             "max_preis_pro_nacht": hotels._zahl(
-                kriterien.get("max_preis_pro_nacht"), 0.0
+                baustelle.get("max_preis_pro_nacht")
+                if baustelle.get("max_preis_pro_nacht") is not None
+                else kriterien.get("max_preis_pro_nacht"),
+                0.0,
             ),
             "fruehstueck": bool(kriterien.get("fruehstueck", True)),
             "fruehstueck_ab": kriterien.get("fruehstueck_ab", ""),
@@ -173,6 +176,7 @@ def befehl_auswerten(args: argparse.Namespace) -> int:
 
     baustelle = dict(auftrag["baustelle"])
     baustelle["max_entfernung_km"] = auftrag["suche"]["radius_km"]
+    baustelle["max_preis_pro_nacht"] = auftrag["suche"]["max_preis_pro_nacht"]
 
     treffer = hotels.auswerten(
         rohtreffer,
@@ -299,6 +303,21 @@ def befehl_buchen(args: argparse.Namespace) -> int:
     return 0
 
 
+def befehl_hoehe(args: argparse.Namespace) -> int:
+    """Hält eine erfragte Durchfahrtshöhe fest.
+
+    Die Höhe steht in keiner Ausstattungsliste, muss also beim Haus erfragt
+    werden. Einmal notiert, sortiert die Suche das Hotel künftig selbst aus,
+    statt es wieder vorzuschlagen und wieder nachzufragen. Ein Parkhaus wird
+    nicht höher, der Wert hält also.
+    """
+    pfad = hotels.speichere_hoehe(
+        args.hotel_id, args.meter, args.name or "", args.quelle or ""
+    )
+    print(f"{args.name or args.hotel_id}: {args.meter:.2f} m, notiert in {pfad}")
+    return 0
+
+
 def befehl_baustellen(_: argparse.Namespace) -> int:
     for b in hotels.lade_baustellen():
         koord = b.get("koordinaten") or {}
@@ -359,6 +378,13 @@ def main() -> int:
     p_buchen.add_argument("--gesamt", type=float, help="Angebotssumme, falls bekannt")
     p_buchen.add_argument("--fazit", help="z. B. 'Parkplatz eng, Frühstück ab 5:30'")
     p_buchen.set_defaults(funktion=befehl_buchen)
+
+    p_hoehe = unter.add_parser("hoehe", help="erfragte Durchfahrtshöhe festhalten")
+    p_hoehe.add_argument("hotel_id", type=int, help="Hotel-ID aus --ids")
+    p_hoehe.add_argument("meter", type=float, help="z. B. 2.00")
+    p_hoehe.add_argument("--name", help="Hotelname, nur zum Wiedererkennen")
+    p_hoehe.add_argument("--quelle", help="woher der Wert stammt")
+    p_hoehe.set_defaults(funktion=befehl_hoehe)
 
     unter.add_parser("baustellen", help="hinterlegte Baustellen").set_defaults(
         funktion=befehl_baustellen

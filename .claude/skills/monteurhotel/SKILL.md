@@ -21,7 +21,8 @@ die Verfügbarkeit aus der Live-Suche, die Bewertung der Treffer aus
    „Privatparkplatz, Parken vor Ort" ohne jede Erwähnung eines Parkhauses
    und hat trotzdem 2,00 m Schranke. Deshalb die Höhe bei **jedem** Haus
    erfragen, das du vorschlägst, auch bei grünem Häkchen. Das Häkchen heißt
-   nur, dass ein Stellplatz existiert, nicht dass er hoch genug ist.
+   nur, dass ein Stellplatz existiert, nicht dass er hoch genug ist. Steht die
+   Höhe schon in `hotels/hoehen.yaml`, gilt sie und es wird nicht neu gefragt.
 3. **Entfernung ist Luftlinie.** Das Skript rechnet keine Route. Die Fahrzeit
    ist eine Schätzung und wird auch so benannt. Bei Wasser, Bahntrasse oder
    Werksgelände dazwischen kann die echte Fahrt deutlich länger sein, das bei
@@ -106,6 +107,18 @@ beantwortet, mit den Hotel-IDs aus `--ids`. Sinnvolle Fragen:
 
 Antworten ohne Beleg nicht als gesichert ausgeben. Was das Portal nicht
 hergibt, kommt in die Anfragemail an Punkt 2 und 3.
+
+**Jede erfragte Durchfahrtshöhe sofort festhalten**, auch und gerade die zu
+niedrigen:
+
+```bash
+python3 werkzeuge/hotelsuche.py hoehe <hotel-id> <meter> --name "<Hotel>"
+```
+
+Das Verzeichnis liegt in `hotels/hoehen.yaml` und wird bei jeder Auswertung
+gelesen. Ein eingetragenes Haus wird künftig selbst aussortiert, mit Höhe und
+Prüfdatum als Grund, statt wieder vorgeschlagen und wieder abgefragt zu
+werden. Ein Parkhaus wird nicht höher, der Wert hält.
 
 ### 5. Vorschlagen
 
