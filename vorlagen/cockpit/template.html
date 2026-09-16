@@ -405,6 +405,17 @@ function auftragZeichnen(){
     zeilen.push(`${n} Nächte: bitte zusätzlich die Direktanfrage ans Hotel erzeugen.`);
   }
 
+  // Der Auftrag muss für sich stehen: Er landet womöglich in einem frischen
+  // Chat, der die Regeln aus dem Skill nicht kennt. Die zwei, an denen sonst
+  // eine Buchung scheitert, reisen deshalb mit.
+  zeilen.push("");
+  zeilen.push("Bitte beachten:");
+  zeilen.push("- Die Durchfahrtshöhe bei jedem Vorschlag beim Haus erfragen. Sie steht");
+  zeilen.push("  in keiner Ausstattungsliste, auch nicht wenn dort \"Privatparkplatz\"");
+  zeilen.push("  angegeben ist. Nur eine genannte Zahl in Metern zählt.");
+  zeilen.push("- Drei Vorschläge reichen, mit Entfernung zur Baustelle, Preis je Zimmer");
+  zeilen.push("  und Nacht, Bewertung und Buchungslink.");
+
   stelle("auftragText").textContent = zeilen.join("\n");
 
   const kuerzelListe = besetzung.map(m => m.kuerzel).join(" ");
