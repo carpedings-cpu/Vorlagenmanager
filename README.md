@@ -97,6 +97,26 @@ Monteurpauschalen regelmäßig unter dem Portalpreis liegen. Jede Buchung landet
 in `buchungen.yaml` samt Fazit, und beim nächsten Einsatz am selben Ort steht
 oben, was dort funktioniert hat.
 
+### Cockpit
+
+Wer lieber klickt als tippt, erzeugt sich die Oberfläche dazu:
+
+```bash
+python3 werkzeuge/cockpit.py
+```
+
+Das Ergebnis ist **eine** HTML-Datei im Datenordner unter `hotels/cockpit.html`,
+die per Doppelklick aufgeht und auch aus SharePoint heraus läuft. Baustelle aus
+dem Dropdown, Monteure per Häkchen, Zeitraum, fertig: Daraus entsteht der
+Auftragstext für Claude, der passende Kommandozeilenaufruf und als Notnagel ein
+Booking-Link. Dazu Belegungsplan, Buchungshistorie und das Höhenverzeichnis.
+
+Die Stammdaten stehen in der Datei drin, sie werden nicht nachgeladen. Nach
+jeder Änderung an Baustellen oder Monteuren also neu erzeugen. Was die Seite
+nicht kann, ist die Verfügbarkeit abfragen: Dafür fehlt einem Browser der
+Zugang zu den Hotelportalen. Sie stellt die Anfrage zusammen, die Suche selbst
+läuft über Claude.
+
 Details: [`stammdaten/README.md`](stammdaten/README.md).
 
 ## Prüfen

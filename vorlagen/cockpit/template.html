@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Monteurhotel Cockpit</title>
+<style>
+:root{
+  --dunkel:#2d2926; --mittel:#6b5040; --sand:#c8a882;
+  --papier:#f7f5f2; --weiss:#fff; --linie:#e2dcd4;
+  --gut:#4a7c59; --warn:#b8860b; --stop:#a4433a;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;background:var(--papier);color:var(--dunkel);
+  font-family:"Roboto Condensed","Arial Narrow",system-ui,sans-serif;
+  font-weight:300;font-size:16px;line-height:1.45;
+}
+header{
+  background:var(--dunkel);color:var(--papier);
+  padding:14px 20px;display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;
+}
+header .marke{font-size:22px;font-weight:700;letter-spacing:.5px}
+header .titel{font-size:18px;color:var(--sand)}
+header .stand{margin-left:auto;font-size:13px;opacity:.75}
+nav{display:flex;background:var(--mittel);flex-wrap:wrap}
+nav button{
+  background:none;border:0;color:var(--papier);padding:11px 18px;
+  font:inherit;font-size:15px;cursor:pointer;border-bottom:3px solid transparent;
+}
+nav button:hover{background:rgba(255,255,255,.08)}
+nav button.aktiv{background:var(--papier);color:var(--dunkel);border-bottom-color:var(--sand)}
+main{max-width:1100px;margin:0 auto;padding:18px 16px 60px}
+section{display:none}
+section.aktiv{display:block}
+.karte{
+  background:var(--weiss);border:1px solid var(--linie);border-radius:4px;
+  padding:16px;margin-bottom:16px;
+}
+.karte h2{margin:0 0 12px;font-size:19px;font-weight:700;color:var(--mittel)}
+.karte h3{margin:16px 0 8px;font-size:16px;font-weight:700}
+label{display:block;font-size:13px;text-transform:uppercase;letter-spacing:.6px;
+  color:var(--mittel);margin-bottom:4px}
+select,input[type=date],input[type=text],input[type=number],textarea{
+  width:100%;padding:9px 10px;border:1px solid var(--linie);border-radius:3px;
+  font:inherit;background:var(--weiss);color:var(--dunkel);
+}
+select:focus,input:focus,textarea:focus{outline:2px solid var(--sand);outline-offset:-1px}
+.reihe{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:14px}
+.leute{display:flex;flex-wrap:wrap;gap:8px}
+.person{
+  display:flex;align-items:center;gap:7px;border:1px solid var(--linie);
+  border-radius:3px;padding:8px 12px;cursor:pointer;background:var(--weiss);
+  text-transform:none;letter-spacing:normal;font-size:16px;color:var(--dunkel);
+  margin-bottom:0;
+}
+.person:hover{border-color:var(--sand)}
+.person input{margin:0;width:auto}
+.person.an{background:var(--sand);border-color:var(--mittel)}
+.person small{opacity:.7}
+button.tat{
+  background:var(--mittel);color:var(--weiss);border:0;border-radius:3px;
+  padding:10px 16px;font:inherit;font-size:15px;cursor:pointer;
+}
+button.tat:hover{background:var(--dunkel)}
+button.leise{background:none;color:var(--mittel);border:1px solid var(--linie)}
+button.leise:hover{background:var(--papier);color:var(--dunkel)}
+.knopfreihe{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+pre.block{
+  background:var(--papier);border:1px solid var(--linie);border-left:3px solid var(--sand);
+  padding:12px;border-radius:3px;white-space:pre-wrap;word-break:break-word;
+  font-family:ui-monospace,"Consolas",monospace;font-size:13.5px;margin:0;
+}
+table{width:100%;border-collapse:collapse;font-size:14.5px}
+th{text-align:left;padding:8px 10px;background:var(--papier);color:var(--mittel);
+  font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.5px;
+  border-bottom:2px solid var(--linie)}
+td{padding:8px 10px;border-bottom:1px solid var(--linie);vertical-align:top}
+tr:hover td{background:var(--papier)}
+.fahne{display:inline-block;padding:2px 8px;border-radius:2px;font-size:12.5px;
+  font-weight:700;letter-spacing:.3px}
+.f-gut{background:#e4ede6;color:var(--gut)}
+.f-warn{background:#f6eed8;color:var(--warn)}
+.f-stop{background:#f3e0de;color:var(--stop)}
+.hinweis{font-size:14px;color:var(--mittel);margin:10px 0 0}
+.hinweis.stop{color:var(--stop);font-weight:700}
+.leer{color:var(--mittel);font-style:italic;padding:14px 0}
+.balken{position:relative;height:26px;background:var(--papier);border-radius:3px;overflow:hidden}
+.balken span{position:absolute;top:0;bottom:0;background:var(--sand);
+  border-left:2px solid var(--mittel);font-size:12px;padding:4px 6px;white-space:nowrap;overflow:hidden}
+.monat{font-size:13px;color:var(--mittel);margin-bottom:4px}
+footer{max-width:1100px;margin:0 auto;padding:0 16px 30px;font-size:13px;color:var(--mittel)}
+@media(max-width:620px){
+  header .stand{width:100%;margin-left:0}
+  main{padding:12px 10px 50px}
+  td,th{padding:6px 5px;font-size:13.5px}
+}
+</style>
+</head>
+<body>
+<header>
+  <span class="marke">KPC</span>
+  <span class="titel">Monteurhotel Cockpit</span>
+  <span class="stand">Stand /*{{STAND}}*/</span>
+</header>
+
+<nav>
+  <button class="aktiv" data-ziel="suche">Suche</button>
+  <button data-ziel="belegung">Belegung</button>
+  <button data-ziel="haeuser">Hotels</button>
+  <button data-ziel="stamm">Stammdaten</button>
+</nav>
+
+<main>
+
+<section id="suche" class="aktiv">
+  <div class="karte">
+    <h2>Suchauftrag</h2>
+    <div class="reihe">
+      <div>
+        <label for="bst">Baustelle</label>
+        <select id="bst"></select>
+      </div>
+      <div>
+        <label for="von">Anreise</label>
+        <input type="date" id="von">
+      </div>
+      <div>
+        <label for="bis">Abreise</label>
+        <input type="date" id="bis">
+      </div>
+    </div>
+    <label>Wer fährt</label>
+    <div class="leute" id="leute"></div>
+    <p class="hinweis" id="lage"></p>
+  </div>
+
+  <div class="karte" id="ergebnis" style="display:none">
+    <h2>Auftrag</h2>
+    <pre class="block" id="auftragText"></pre>
+    <div class="knopfreihe">
+      <button class="tat" data-kopie="auftragText">Auftrag kopieren</button>
+      <button class="leise" data-kopie="befehlText">Befehl kopieren</button>
+      <button class="leise" id="zuBooking">Bei Booking öffnen</button>
+    </div>
+    <h3>Befehl für die Kommandozeile</h3>
+    <pre class="block" id="befehlText"></pre>
+    <p class="hinweis">Der Auftrag oben geht an Claude, der die Verfügbarkeit
+      prüft. Der Booking-Link ist der Notnagel, wenn du selbst suchen willst:
+      Er trägt Ort, Zeitraum und Zimmerzahl, die Feinfilter setzt du dort.</p>
+  </div>
+
+  <div class="karte" id="warnungen" style="display:none">
+    <h2>Vor dem Buchen</h2>
+    <div id="warnListe"></div>
+  </div>
+</section>
+
+<section id="belegung">
+  <div class="karte">
+    <h2>Wer liegt wann wo</h2>
+    <div id="belegListe"></div>
+  </div>
+  <div class="karte">
+    <h2>Buchung eintragen</h2>
+    <div class="reihe">
+      <div><label for="bBst">Baustelle</label><select id="bBst"></select></div>
+      <div><label for="bHotel">Hotel</label><input type="text" id="bHotel" placeholder="Name"></div>
+      <div><label for="bVon">Anreise</label><input type="date" id="bVon"></div>
+      <div><label for="bBis">Abreise</label><input type="date" id="bBis"></div>
+      <div><label for="bPreis">EUR je Zimmer und Nacht</label><input type="number" step="0.01" id="bPreis"></div>
+    </div>
+    <label>Wer</label>
+    <div class="leute" id="bLeute"></div>
+    <div style="margin-top:12px">
+      <label for="bFazit">Fazit</label>
+      <textarea id="bFazit" rows="2" placeholder="Durchfahrt 3,20 m, Frühstück ab 6:00, Parkplatz eng"></textarea>
+    </div>
+    <div class="knopfreihe">
+      <button class="tat" id="bSpeichern">Eintragen</button>
+      <button class="leise" id="bExport">Als YAML exportieren</button>
+    </div>
+    <p class="hinweis">Eingetragen wird zunächst nur in diesem Browser. Der
+      Export schreibt die Datei, die in den Datenordner unter
+      <code>hotels/buchungen.yaml</code> gehört.</p>
+  </div>
+</section>
+
+<section id="haeuser">
+  <div class="karte">
+    <h2>Bekannte Durchfahrtshöhen</h2>
+    <p class="hinweis">Die Höhe steht in keiner Ausstattungsliste und muss beim
+      Haus erfragt werden. Einmal notiert, gilt sie weiter: Ein Parkhaus wird
+      nicht höher.</p>
+    <div id="hoehenListe"></div>
+  </div>
+  <div class="karte">
+    <h2>Höhe nachtragen</h2>
+    <div class="reihe">
+      <div><label for="hId">Hotel-ID</label><input type="number" id="hId" placeholder="aus der Trefferliste"></div>
+      <div><label for="hName">Hotel</label><input type="text" id="hName"></div>
+      <div><label for="hMeter">Durchfahrt in Meter</label><input type="number" step="0.05" id="hMeter" placeholder="2.00"></div>
+    </div>
+    <div class="knopfreihe">
+      <button class="tat" id="hSpeichern">Eintragen</button>
+      <button class="leise" id="hExport">Als YAML exportieren</button>
+    </div>
+  </div>
+  <div class="karte">
+    <h2>Schon gebucht</h2>
+    <div id="hausListe"></div>
+  </div>
+</section>
+
+<section id="stamm">
+  <div class="karte">
+    <h2>Baustellen</h2>
+    <div id="stammBst"></div>
+  </div>
+  <div class="karte">
+    <h2>Monteure</h2>
+    <div id="stammMont"></div>
+  </div>
+  <div class="karte">
+    <h2>Kriterien</h2>
+    <div id="stammKrit"></div>
+    <p class="hinweis">Geändert wird das in <code>hotels/kriterien.yaml</code>
+      im Datenordner. Baustellen dürfen Radius und Preislimit überschreiben.</p>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  KPC GmbH &middot; Erzeugt aus den Stammdaten im Datenordner. Neu erzeugen nach
+  jeder Änderung an Baustellen oder Monteuren:
+  <code>python3 werkzeuge/cockpit.py</code>
+</footer>
+
+<script>
+"use strict";
+
+const BAUSTELLEN = /*{{BAUSTELLEN}}*/[];
+const MONTEURE   = /*{{MONTEURE}}*/[];
+const BUCHUNGEN  = /*{{BUCHUNGEN}}*/[];
+const HOEHEN     = /*{{HOEHEN}}*/{};
+const KRITERIEN  = /*{{KRITERIEN}}*/{};
+
+const SPRINTER = 2.60;
+
+/* localStorage ist pro Browser und kann fehlen oder gesperrt sein. Alles
+   lesen und schreiben deshalb in try/catch, die App muss auch ohne laufen. */
+function merkeLesen(schluessel, ersatz){
+  try{
+    const roh = localStorage.getItem(schluessel);
+    return roh ? JSON.parse(roh) : ersatz;
+  }catch(e){ return ersatz; }
+}
+function merkeSchreiben(schluessel, wert){
+  try{ localStorage.setItem(schluessel, JSON.stringify(wert)); }catch(e){}
+}
+
+let eigeneBuchungen = merkeLesen("kpc_hotel_buchungen", []);
+let eigeneHoehen    = merkeLesen("kpc_hotel_hoehen", {});
+
+function alleBuchungen(){ return BUCHUNGEN.concat(eigeneBuchungen); }
+function alleHoehen(){ return Object.assign({}, HOEHEN, eigeneHoehen); }
+
+/* --- Hilfen ------------------------------------------------------------- */
+
+function stelle(id){ return document.getElementById(id); }
+
+function alsDatum(iso){
+  if(!iso) return "";
+  const [j,m,t] = iso.split("-");
+  return `${t}.${m}.${j}`;
+}
+function alsIso(deutsch){
+  if(!deutsch) return "";
+  const [t,m,j] = deutsch.split(".");
+  return `${j}-${m}-${t}`;
+}
+function naechte(vonIso, bisIso){
+  if(!vonIso || !bisIso) return 0;
+  const ms = new Date(bisIso) - new Date(vonIso);
+  return Math.round(ms / 86400000);
+}
+function text(wert){
+  return String(wert == null ? "" : wert)
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;");
+}
+function baustelleNach(kuerzel){
+  return BAUSTELLEN.find(b => b.kuerzel === kuerzel) || null;
+}
+function zahlOder(wert, ersatz){
+  const z = parseFloat(wert);
+  return isNaN(z) ? ersatz : z;
+}
+
+/* --- Tabs --------------------------------------------------------------- */
+
+document.querySelectorAll("nav button").forEach(knopf => {
+  knopf.addEventListener("click", () => {
+    document.querySelectorAll("nav button").forEach(k => k.classList.remove("aktiv"));
+    document.querySelectorAll("section").forEach(s => s.classList.remove("aktiv"));
+    knopf.classList.add("aktiv");
+    stelle(knopf.dataset.ziel).classList.add("aktiv");
+    merkeSchreiben("kpc_hotel_tab", knopf.dataset.ziel);
+  });
+});
+
+/* --- Auswahlfelder füllen ------------------------------------------------ */
+
+function baustellenFuellen(feld){
+  feld.innerHTML = '<option value="">bitte wählen</option>' +
+    BAUSTELLEN.map(b =>
+      `<option value="${text(b.kuerzel)}">${text(b.kurzname)} (${text(b.kuerzel)})</option>`
+    ).join("");
+}
+
+function leuteFuellen(behaelter, praefix){
+  behaelter.innerHTML = MONTEURE
+    .filter(m => !m.buero)
+    .map(m => {
+      const hoehe = m.fahrzeughoehe_m ? `${Number(m.fahrzeughoehe_m).toFixed(2)} m` : "Höhe offen";
+      return `<label class="person">
+        <input type="checkbox" value="${text(m.kuerzel)}" name="${praefix}">
+        <span>${text(m.name || m.kuerzel)}<br><small>${text(m.kuerzel)} &middot; ${hoehe}</small></span>
+      </label>`;
+    }).join("");
+  behaelter.querySelectorAll("input").forEach(kasten => {
+    kasten.addEventListener("change", () => {
+      kasten.closest(".person").classList.toggle("an", kasten.checked);
+      if(praefix === "suche") auftragZeichnen();
+    });
+  });
+}
+
+function gewaehlteLeute(praefix){
+  return Array.from(document.querySelectorAll(`input[name="${praefix}"]:checked`))
+    .map(k => MONTEURE.find(m => m.kuerzel === k.value))
+    .filter(Boolean);
+}
+
+/* --- Suche -------------------------------------------------------------- */
+
+function auftragZeichnen(){
+  const bst = baustelleNach(stelle("bst").value);
+  const vonIso = stelle("von").value;
+  const bisIso = stelle("bis").value;
+  const besetzung = gewaehlteLeute("suche");
+  const lage = stelle("lage");
+
+  if(!bst){
+    lage.textContent = "";
+    stelle("ergebnis").style.display = "none";
+    stelle("warnungen").style.display = "none";
+    return;
+  }
+
+  const radius = zahlOder(bst.max_entfernung_km, zahlOder(KRITERIEN.max_entfernung_km, 15));
+  const limit = bst.max_preis_pro_nacht != null
+    ? zahlOder(bst.max_preis_pro_nacht, 0)
+    : zahlOder(KRITERIEN.max_preis_pro_nacht, 0);
+
+  const teile = [`${radius} km Radius`];
+  teile.push(limit ? `max. ${limit} EUR je Zimmer und Nacht` : "kein Preislimit");
+  if(bst.hinweis) teile.push(bst.hinweis);
+  lage.textContent = teile.join(" · ");
+
+  const n = naechte(vonIso, bisIso);
+  if(!vonIso || !bisIso || n < 1){
+    stelle("ergebnis").style.display = "none";
+    stelle("warnungen").style.display = "none";
+    return;
+  }
+
+  const zimmer = besetzung.length || 1;
+  const hoehen = besetzung.map(m => zahlOder(m.fahrzeughoehe_m, SPRINTER));
+  const fahrzeug = hoehen.length ? Math.max.apply(null, hoehen) : SPRINTER;
+  const namen = besetzung.length
+    ? besetzung.map(m => `${m.kuerzel} (${m.name || m.kuerzel})`).join(", ")
+    : "noch offen";
+
+  const zeilen = [
+    `Hotel für ${bst.kurzname} (${bst.kuerzel}), ${alsDatum(vonIso)} bis ${alsDatum(bisIso)}.`,
+    ``,
+    `Baustelle: ${[bst.strasse, `${bst.plz || ""} ${bst.ort || ""}`.trim()].filter(Boolean).join(", ")}`,
+    `Koordinaten: ${bst.koordinaten.lat}, ${bst.koordinaten.lon}`,
+    `Nächte: ${n}`,
+    `Zimmer: ${zimmer} Einzelzimmer mit Dusche und WC`,
+    `Besetzung: ${namen}`,
+    `Fahrzeughöhe: ${fahrzeug.toFixed(2)} m`,
+    `Radius: ${radius} km`,
+    limit ? `Preislimit: ${limit} EUR je Zimmer und Nacht` : `Preislimit: keines`,
+    `Frühstück, Parkplatz, freie Stornierung, ab ${KRITERIEN.mindestbewertung || 8} Bewertung`,
+  ];
+  if(bst.hinweis) zeilen.push(`Hinweis Baustelle: ${bst.hinweis}`);
+  besetzung.filter(m => m.hinweis).forEach(m => zeilen.push(`Hinweis ${m.kuerzel}: ${m.hinweis}`));
+
+  const abDirekt = zahlOder(KRITERIEN.direktanfrage_ab_naechten, 5);
+  if(n >= abDirekt){
+    zeilen.push("");
+    zeilen.push(`${n} Nächte: bitte zusätzlich die Direktanfrage ans Hotel erzeugen.`);
+  }
+
+  stelle("auftragText").textContent = zeilen.join("\n");
+
+  const kuerzelListe = besetzung.map(m => m.kuerzel).join(" ");
+  stelle("befehlText").textContent =
+    `python3 werkzeuge/hotelsuche.py auftrag ${bst.kuerzel} ` +
+    `${alsDatum(vonIso)} ${alsDatum(bisIso)}` +
+    (kuerzelListe ? ` --monteure ${kuerzelListe}` : ` --zimmer ${zimmer}`);
+
+  stelle("ergebnis").style.display = "";
+  warnungenZeichnen(bst, vonIso, bisIso, besetzung, fahrzeug);
+}
+
+function bookingLink(){
+  const bst = baustelleNach(stelle("bst").value);
+  if(!bst) return "";
+  const zimmer = gewaehlteLeute("suche").length || 1;
+  const ort = [bst.strasse, `${bst.plz || ""} ${bst.ort || ""}`.trim()]
+    .filter(Boolean).join(", ");
+  const p = new URLSearchParams({
+    ss: ort,
+    checkin: stelle("von").value,
+    checkout: stelle("bis").value,
+    no_rooms: String(zimmer),
+    group_adults: String(zimmer),
+    group_children: "0",
+    selected_currency: "EUR"
+  });
+  return "https://www.booking.com/searchresults.de.html?" + p.toString();
+}
+
+function warnungenZeichnen(bst, vonIso, bisIso, besetzung, fahrzeug){
+  const meldungen = [];
+
+  // Bekannte zu niedrige Häuser an diesem Ort
+  const hoehen = alleHoehen();
+  const zuNiedrig = Object.keys(hoehen)
+    .map(id => hoehen[id])
+    .filter(h => zahlOder(h.meter, 99) < fahrzeug);
+  if(zuNiedrig.length){
+    const eins = zuNiedrig.length === 1;
+    meldungen.push(`<p class="hinweis"><span class="fahne f-warn">Höhe</span>
+      Im Verzeichnis ${eins ? "steht ein Haus" : `stehen ${zuNiedrig.length} Häuser`}
+      mit zu niedriger Durchfahrt für ${fahrzeug.toFixed(2)} m.
+      ${eins ? "Es wird" : "Sie werden"} beim Auswerten aussortiert, falls
+      ${eins ? "es" : "sie"} in den Treffern auftauch${eins ? "t" : "en"}.</p>`);
+  }
+
+  // Doppelt verplante Monteure
+  const kollisionen = [];
+  besetzung.forEach(m => {
+    alleBuchungen().forEach(b => {
+      const leute = b.monteure || [];
+      if(!leute.includes(m.kuerzel)) return;
+      const bVon = alsIso(b.anreise), bBis = alsIso(b.abreise);
+      if(bVon < bisIso && vonIso < bBis){
+        kollisionen.push(`${m.kuerzel} liegt vom ${b.anreise} bis ${b.abreise}
+          schon im ${b.hotel} (${b.baustelle})`);
+      }
+    });
+  });
+  kollisionen.forEach(k => {
+    meldungen.push(`<p class="hinweis stop"><span class="fahne f-stop">Doppelt</span> ${text(k)}</p>`);
+  });
+
+  // Was an dieser Baustelle schon gebucht war
+  const frueher = alleBuchungen().filter(b =>
+    b.baustelle === bst.kuerzel || b.baustelle === bst.kurzname);
+  if(frueher.length){
+    const letzte = frueher[frueher.length - 1];
+    meldungen.push(`<p class="hinweis"><span class="fahne f-gut">Bekannt</span>
+      Hier war schon ${text(letzte.hotel)}${letzte.fazit ? ": " + text(letzte.fazit) : ""}.</p>`);
+  }
+
+  meldungen.push(`<p class="hinweis">Die Durchfahrtshöhe steht in keiner
+    Ausstattungsliste. Vor dem Buchen bei jedem Haus erfragen, auch wenn
+    &bdquo;Privatparkplatz&ldquo; dabeisteht.</p>`);
+
+  stelle("warnListe").innerHTML = meldungen.join("");
+  stelle("warnungen").style.display = "";
+}
+
+/* --- Belegung ----------------------------------------------------------- */
+
+function belegungZeichnen(){
+  const liste = alleBuchungen()
+    .slice()
+    .sort((a,b) => alsIso(a.anreise) < alsIso(b.anreise) ? 1 : -1);
+
+  if(!liste.length){
+    stelle("belegListe").innerHTML =
+      '<p class="leer">Noch keine Buchung eingetragen.</p>';
+    return;
+  }
+
+  const zeilen = liste.map(b => {
+    const leute = (b.monteure || []).map(k => {
+      const m = MONTEURE.find(x => x.kuerzel === k);
+      return m ? (m.name || k) : k;
+    }).join(", ");
+    const bst = baustelleNach(b.baustelle);
+    const gesamt = b.gesamt != null ? Number(b.gesamt).toFixed(2) + " EUR" : "";
+    return `<tr>
+      <td>${text(b.anreise)}<br><small>bis ${text(b.abreise)}</small></td>
+      <td>${text(bst ? bst.kurzname : b.baustelle)}</td>
+      <td>${text(b.hotel)}${b.fazit ? `<br><small>${text(b.fazit)}</small>` : ""}</td>
+      <td>${text(leute)}</td>
+      <td>${text(gesamt)}</td>
+    </tr>`;
+  });
+
+  stelle("belegListe").innerHTML = `<table>
+    <thead><tr><th>Zeitraum</th><th>Baustelle</th><th>Hotel</th><th>Wer</th><th>Summe</th></tr></thead>
+    <tbody>${zeilen.join("")}</tbody></table>`;
+}
+
+/* --- Hotels ------------------------------------------------------------- */
+
+function hoehenZeichnen(){
+  const hoehen = alleHoehen();
+  const ids = Object.keys(hoehen);
+  if(!ids.length){
+    stelle("hoehenListe").innerHTML = '<p class="leer">Noch nichts erfragt.</p>';
+    return;
+  }
+  const zeilen = ids.map(id => {
+    const h = hoehen[id];
+    const meter = zahlOder(h.meter, 0);
+    const passt = meter >= SPRINTER
+      ? '<span class="fahne f-gut">Sprinter passt</span>'
+      : (meter >= 2.35
+        ? '<span class="fahne f-warn">nur ohne Hochdach</span>'
+        : '<span class="fahne f-stop">zu niedrig</span>');
+    return `<tr>
+      <td>${text(h.name || id)}</td>
+      <td>${meter.toFixed(2)} m</td>
+      <td>${passt}</td>
+      <td><small>${text(h.geprueft_am || "")}</small></td>
+    </tr>`;
+  });
+  stelle("hoehenListe").innerHTML = `<table>
+    <thead><tr><th>Hotel</th><th>Durchfahrt</th><th>Urteil</th><th>Geprüft</th></tr></thead>
+    <tbody>${zeilen.join("")}</tbody></table>`;
+}
+
+function haeuserZeichnen(){
+  const nachHotel = {};
+  alleBuchungen().forEach(b => {
+    if(!b.hotel) return;
+    if(!nachHotel[b.hotel]) nachHotel[b.hotel] = [];
+    nachHotel[b.hotel].push(b);
+  });
+  const namen = Object.keys(nachHotel);
+  if(!namen.length){
+    stelle("hausListe").innerHTML = '<p class="leer">Noch keine Buchung.</p>';
+    return;
+  }
+  const zeilen = namen.map(name => {
+    const eintraege = nachHotel[name];
+    const letzte = eintraege[eintraege.length - 1];
+    const preise = eintraege.map(b => zahlOder(b.preis_pro_nacht, 0)).filter(Boolean);
+    const schnitt = preise.length
+      ? (preise.reduce((a,b) => a+b, 0) / preise.length).toFixed(2) + " EUR"
+      : "";
+    return `<tr>
+      <td>${text(name)}</td>
+      <td>${eintraege.length}&times;</td>
+      <td>${text(schnitt)}</td>
+      <td>${text(letzte.fazit || "")}</td>
+    </tr>`;
+  });
+  stelle("hausListe").innerHTML = `<table>
+    <thead><tr><th>Hotel</th><th>Gebucht</th><th>Schnitt je Nacht</th><th>Zuletzt notiert</th></tr></thead>
+    <tbody>${zeilen.join("")}</tbody></table>`;
+}
+
+/* --- Stammdaten --------------------------------------------------------- */
+
+function stammZeichnen(){
+  stelle("stammBst").innerHTML = `<table>
+    <thead><tr><th>Kürzel</th><th>Baustelle</th><th>Ort</th><th>Radius</th><th>Limit</th></tr></thead>
+    <tbody>${BAUSTELLEN.map(b => {
+      const limit = b.max_preis_pro_nacht != null
+        ? `${b.max_preis_pro_nacht} EUR`
+        : `${KRITERIEN.max_preis_pro_nacht || "-"} EUR`;
+      return `<tr>
+        <td><strong>${text(b.kuerzel)}</strong></td>
+        <td>${text(b.kurzname)}${b.hinweis ? `<br><small>${text(b.hinweis)}</small>` : ""}</td>
+        <td>${text(b.plz)} ${text(b.ort)}</td>
+        <td>${text(b.max_entfernung_km || KRITERIEN.max_entfernung_km)} km</td>
+        <td>${text(limit)}</td>
+      </tr>`;
+    }).join("")}</tbody></table>`;
+
+  stelle("stammMont").innerHTML = `<table>
+    <thead><tr><th>Kürzel</th><th>Name</th><th>Fahrzeug</th><th>Höhe</th></tr></thead>
+    <tbody>${MONTEURE.map(m => `<tr>
+      <td><strong>${text(m.kuerzel)}</strong></td>
+      <td>${text(m.name)}${m.hinweis ? `<br><small>${text(m.hinweis)}</small>` : ""}</td>
+      <td>${text(m.fahrzeug)}</td>
+      <td>${m.fahrzeughoehe_m ? Number(m.fahrzeughoehe_m).toFixed(2) + " m" : "-"}</td>
+    </tr>`).join("")}</tbody></table>`;
+
+  const zeigen = [
+    ["Mindestbewertung", KRITERIEN.mindestbewertung],
+    ["Mindestanzahl Bewertungen", KRITERIEN.mindestanzahl_bewertungen],
+    ["Preislimit je Nacht", KRITERIEN.max_preis_pro_nacht ? KRITERIEN.max_preis_pro_nacht + " EUR" : "keins"],
+    ["Radius", KRITERIEN.max_entfernung_km + " km"],
+    ["Frühstück ab", KRITERIEN.fruehstueck_ab],
+    ["Direktanfrage ab", KRITERIEN.direktanfrage_ab_naechten + " Nächten"]
+  ];
+  stelle("stammKrit").innerHTML = `<table><tbody>${
+    zeigen.map(([k,v]) => `<tr><td>${text(k)}</td><td><strong>${text(v)}</strong></td></tr>`).join("")
+  }</tbody></table>`;
+}
+
+/* --- Eintragen und Exportieren ------------------------------------------ */
+
+function jaEintragen(){
+  const bst = stelle("bBst").value;
+  const hotel = stelle("bHotel").value.trim();
+  const von = stelle("bVon").value, bis = stelle("bBis").value;
+  if(!bst || !hotel || !von || !bis){
+    alert("Baustelle, Hotel und Zeitraum werden gebraucht.");
+    return;
+  }
+  const n = naechte(von, bis);
+  if(n < 1){ alert("Die Abreise muss nach der Anreise liegen."); return; }
+
+  const leute = gewaehlteLeute("buchung").map(m => m.kuerzel);
+  const preis = zahlOder(stelle("bPreis").value, 0);
+  eigeneBuchungen.push({
+    baustelle: bst,
+    hotel: hotel,
+    anreise: alsDatum(von),
+    abreise: alsDatum(bis),
+    naechte: n,
+    zimmer: leute.length || 1,
+    monteure: leute,
+    preis_pro_nacht: preis || null,
+    gesamt: preis ? Math.round(preis * (leute.length || 1) * n * 100) / 100 : null,
+    gebucht_am: alsDatum(new Date().toISOString().slice(0,10)),
+    fazit: stelle("bFazit").value.trim()
+  });
+  merkeSchreiben("kpc_hotel_buchungen", eigeneBuchungen);
+  stelle("bHotel").value = ""; stelle("bPreis").value = ""; stelle("bFazit").value = "";
+  belegungZeichnen(); haeuserZeichnen();
+  alert("Eingetragen. Über den Export kommt die Buchung in den Datenordner.");
+}
+
+function yamlZeichenkette(wert){
+  const s = String(wert == null ? "" : wert);
+  return /^[\w .,\/()+-]*$/.test(s) && s !== "" ? s : JSON.stringify(s);
+}
+
+function buchungenExportieren(){
+  const alle = alleBuchungen();
+  if(!alle.length){ alert("Nichts zu exportieren."); return; }
+  const zeilen = ["# Aus dem Cockpit exportiert. Gehört nach hotels/buchungen.yaml.", "buchungen:"];
+  alle.forEach(b => {
+    zeilen.push(`  - baustelle: ${yamlZeichenkette(b.baustelle)}`);
+    zeilen.push(`    hotel: ${yamlZeichenkette(b.hotel)}`);
+    zeilen.push(`    anreise: ${yamlZeichenkette(b.anreise)}`);
+    zeilen.push(`    abreise: ${yamlZeichenkette(b.abreise)}`);
+    zeilen.push(`    naechte: ${b.naechte || 0}`);
+    zeilen.push(`    zimmer: ${b.zimmer || 1}`);
+    zeilen.push(`    monteure: [${(b.monteure || []).join(", ")}]`);
+    if(b.preis_pro_nacht) zeilen.push(`    preis_pro_nacht: ${b.preis_pro_nacht}`);
+    if(b.gesamt) zeilen.push(`    gesamt: ${b.gesamt}`);
+    if(b.gebucht_am) zeilen.push(`    gebucht_am: ${yamlZeichenkette(b.gebucht_am)}`);
+    zeilen.push(`    fazit: ${yamlZeichenkette(b.fazit || "")}`);
+  });
+  herunterladen("buchungen.yaml", zeilen.join("\n") + "\n");
+}
+
+function hoehenExportieren(){
+  const hoehen = alleHoehen();
+  const ids = Object.keys(hoehen);
+  if(!ids.length){ alert("Nichts zu exportieren."); return; }
+  const zeilen = ["# Aus dem Cockpit exportiert. Gehört nach hotels/hoehen.yaml.", "hoehen:"];
+  ids.sort().forEach(id => {
+    const h = hoehen[id];
+    zeilen.push(`  ${id}:`);
+    zeilen.push(`    name: ${yamlZeichenkette(h.name || "")}`);
+    zeilen.push(`    meter: ${zahlOder(h.meter, 0)}`);
+    zeilen.push(`    geprueft_am: ${yamlZeichenkette(h.geprueft_am || "")}`);
+    zeilen.push(`    quelle: ${yamlZeichenkette(h.quelle || "Rückfrage beim Haus")}`);
+  });
+  herunterladen("hoehen.yaml", zeilen.join("\n") + "\n");
+}
+
+function herunterladen(name, inhalt){
+  const blob = new Blob([inhalt], {type:"text/yaml;charset=utf-8"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+/* --- Verdrahten --------------------------------------------------------- */
+
+document.querySelectorAll("[data-kopie]").forEach(knopf => {
+  knopf.addEventListener("click", async () => {
+    const inhalt = stelle(knopf.dataset.kopie).textContent;
+    try{
+      await navigator.clipboard.writeText(inhalt);
+      const alt = knopf.textContent;
+      knopf.textContent = "Kopiert";
+      setTimeout(() => { knopf.textContent = alt; }, 1400);
+    }catch(e){
+      // Ohne Zwischenablage-Rechte bleibt das Markieren von Hand
+      const bereich = document.createRange();
+      bereich.selectNodeContents(stelle(knopf.dataset.kopie));
+      const auswahl = window.getSelection();
+      auswahl.removeAllRanges();
+      auswahl.addRange(bereich);
+    }
+  });
+});
+
+stelle("zuBooking").addEventListener("click", () => {
+  const ziel = bookingLink();
+  if(ziel) window.open(ziel, "_blank", "noopener");
+});
+
+["bst","von","bis"].forEach(id =>
+  stelle(id).addEventListener("change", auftragZeichnen));
+
+stelle("bSpeichern").addEventListener("click", jaEintragen);
+stelle("bExport").addEventListener("click", buchungenExportieren);
+stelle("hExport").addEventListener("click", hoehenExportieren);
+
+stelle("hSpeichern").addEventListener("click", () => {
+  const id = stelle("hId").value.trim();
+  const meter = zahlOder(stelle("hMeter").value, 0);
+  if(!id || !meter){ alert("Hotel-ID und Meter werden gebraucht."); return; }
+  eigeneHoehen[id] = {
+    name: stelle("hName").value.trim(),
+    meter: meter,
+    geprueft_am: alsDatum(new Date().toISOString().slice(0,10)),
+    quelle: "Rückfrage beim Haus"
+  };
+  merkeSchreiben("kpc_hotel_hoehen", eigeneHoehen);
+  stelle("hId").value = ""; stelle("hName").value = ""; stelle("hMeter").value = "";
+  hoehenZeichnen();
+  auftragZeichnen();
+});
+
+/* --- Start -------------------------------------------------------------- */
+
+baustellenFuellen(stelle("bst"));
+baustellenFuellen(stelle("bBst"));
+leuteFuellen(stelle("leute"), "suche");
+leuteFuellen(stelle("bLeute"), "buchung");
+belegungZeichnen();
+hoehenZeichnen();
+haeuserZeichnen();
+stammZeichnen();
+
+const gemerkterTab = merkeLesen("kpc_hotel_tab", "suche");
+const tabKnopf = document.querySelector(`nav button[data-ziel="${gemerkterTab}"]`);
+if(tabKnopf) tabKnopf.click();
+</script>
+</body>
+</html>

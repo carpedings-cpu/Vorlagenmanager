@@ -185,6 +185,25 @@ Neue Monteure analog in `hotels/monteure.yaml`, mit `fahrzeughoehe_m`. Der Wert
 entscheidet, ob Parkhäuser ausgeschlossen werden: Sprinter mit Hochdach rund
 2,60 m, Vito rund 1,95 m.
 
+## Cockpit
+
+Für den Klickweg gibt es eine erzeugte HTML-Oberfläche:
+
+```bash
+python3 werkzeuge/cockpit.py
+```
+
+Sie landet im Datenordner unter `hotels/cockpit.html` und trägt die Stammdaten
+fest eingebaut. **Nach jeder Änderung an Baustellen, Monteuren, Buchungen oder
+Höhen neu erzeugen**, sonst zeigt sie einen alten Stand. Kommt Diana mit einem
+Auftragstext aus dem Cockpit, ist das derselbe Ablauf wie oben ab Schritt 2:
+Der Text enthält Koordinaten, Radius, Zimmerzahl und Fahrzeughöhe schon fertig.
+
+Trägt sie im Cockpit Buchungen oder Höhen ein, liegen die zunächst nur im
+Browser. Die Exportknöpfe schreiben die YAML-Dateien, die in den Datenordner
+gehören. Wenn sie also von Einträgen spricht, die im Skript nicht auftauchen:
+danach fragen, ob der Export schon gelaufen ist.
+
 ## Kriterien ändern
 
 `stammdaten/kriterien.yaml` ist die Vorgabe im Repo. Eigene Werte kommen in
