@@ -242,6 +242,12 @@ def befehl_anfrage(args: argparse.Namespace) -> int:
             ".", ","
         ),
         "fruehstueck_ab": auftrag["suche"].get("fruehstueck_ab") or "6:00",
+        # Eine Wochenpauschale bei vier Nächten zu erfragen wirkt unbedacht.
+        # Der Absatz erscheint erst ab der Dauer, ab der sie sich lohnt.
+        "pauschale": "ja"
+        if auftrag["zeitraum"]["naechte"]
+        >= hotels._zahl(kriterien.get("direktanfrage_ab_naechten"), 5)
+        else "",
         "hinweis": args.hinweis or "",
         "absender": args.absender or absender.get("name", ""),
         "firma": args.firma or absender.get("firma", ""),

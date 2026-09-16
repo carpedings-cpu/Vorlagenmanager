@@ -108,6 +108,13 @@ beantwortet, mit den Hotel-IDs aus `--ids`. Sinnvolle Fragen:
 Antworten ohne Beleg nicht als gesichert ausgeben. Was das Portal nicht
 hergibt, kommt in die Anfragemail an Punkt 2 und 3.
 
+**Vorsicht bei weichen Formulierungen.** Das Detailwerkzeug antwortet auch
+dann, wenn es die Zahl nicht kennt: „is likely an open outdoor lot",
+„suggests there is no height barrier". Das ist eine Vermutung aus der
+Ausstattungsliste, kein erfragter Wert, und sie darf weder ins
+Höhenverzeichnis noch als gesichert in den Vorschlag. Ins Verzeichnis kommt
+nur eine genannte Zahl in Metern. Alles andere geht als Frage ans Haus.
+
 **Jede erfragte Durchfahrtshöhe sofort festhalten**, auch und gerade die zu
 niedrigen:
 

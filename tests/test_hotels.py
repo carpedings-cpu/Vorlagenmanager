@@ -462,3 +462,42 @@ class BekannteHoehen(unittest.TestCase):
         treffer = auswerten([self._haus()], BAUSTELLE, zimmer=1, anzahl_naechte=4,
                             kriterien=KRITERIEN, fahrzeughoehe_m=1.95, hoehen=hoehen)
         self.assertTrue(treffer[0].geeignet, treffer[0].ausschluss)
+
+
+class PauschaleNurBeiLangenAufenthalten(unittest.TestCase):
+    """Bei vier Nächten nach einer Wochenpauschale zu fragen wirkt unbedacht."""
+
+    def _anfrage(self, naechte_zahl):
+        from kern import ersetze_in_markdown, repowurzel
+
+        werte = {
+            "ort": "Oberursel",
+            "anreise": "28.09.2026",
+            "abreise": "02.10.2026",
+            "naechte": str(naechte_zahl),
+            "zimmer": "3",
+            "fahrzeuge": "3",
+            "fahrzeughoehe": "2,35",
+            "fruehstueck_ab": "06:00",
+            "pauschale": "ja" if naechte_zahl >= 5 else "",
+            "hinweis": "",
+            "absender": "Diana Ziegler",
+            "firma": "KPC GmbH",
+        }
+        vorlage = repowurzel() / "vorlagen" / "hotelanfrage" / "anfrage.md"
+        return ersetze_in_markdown(vorlage.read_text(encoding="utf-8"), werte)
+
+    def test_vier_naechte_ohne_pauschalenfrage(self):
+        self.assertNotIn("Pauschale", self._anfrage(4))
+
+    def test_acht_naechte_mit_pauschalenfrage(self):
+        text = self._anfrage(8)
+        self.assertIn("Pauschale", text)
+        self.assertIn("Bei 8 Nächten", text)
+
+    def test_die_uebrigen_punkte_bleiben_in_beiden_faellen(self):
+        for anzahl in (4, 8):
+            text = self._anfrage(anzahl)
+            self.assertIn("Frühstück serviert", text)
+            self.assertIn("Durchfahrt", text)
+            self.assertIn("Stornierung", text)

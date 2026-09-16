@@ -13,8 +13,11 @@ Zimmer: {{zimmer}} Einzelzimmer, jeweils mit Dusche und WC im Zimmer
 Bitte geben Sie uns dazu an:
 
 1. Verfügbarkeit im genannten Zeitraum und Preis je Zimmer und Nacht inklusive
-   Frühstück. Bei {{naechte}} Nächten bitten wir um Ihre Wochen- oder
+   Frühstück.
+{{?pauschale}}
+   Bei {{naechte}} Nächten bitten wir zusätzlich um Ihre Wochen- oder
    Monteurpauschale, falls vorhanden.
+{{/pauschale}}
 2. Ab wann wird morgens Frühstück serviert? Unsere Leute starten früh und
    brauchen es ab {{fruehstueck_ab}} Uhr.
 3. Parkmöglichkeit für {{fahrzeuge}} Transporter mit einer Höhe von
