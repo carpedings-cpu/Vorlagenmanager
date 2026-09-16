@@ -111,7 +111,12 @@ def _auftrag_zeigen(auftrag: dict) -> str:
         f"Zimmer:    {auftrag['zimmer']} × {s['zimmerart']}, Dusche/WC im Zimmer",
     ]
     if besetzung:
-        namen = ", ".join(f"{m['kuerzel']} ({m['name']})" for m in besetzung)
+        # Steht noch kein Name in den Stammdaten, bleibt es beim Kürzel,
+        # statt eine leere Klammer hinzuschreiben.
+        namen = ", ".join(
+            f"{m['kuerzel']} ({m['name']})" if m.get("name") else m["kuerzel"]
+            for m in besetzung
+        )
         zeilen.append(f"Besetzung: {namen}")
     zeilen += [
         f"Radius:    {s['radius_km']:.0f} km um die Baustelle",
