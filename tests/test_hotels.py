@@ -292,3 +292,67 @@ class Stammdaten(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RankingGegenDenPreis(unittest.TestCase):
+    """Vier Euro Ersparnis dürfen acht Kilometer Anfahrt nicht aufwiegen."""
+
+    def test_naeheres_hotel_gewinnt_bei_kleinem_preisunterschied(self):
+        # Marburg, real: Hotel Weber 10,9 km für 82,50 gegen
+        # Zur Burgruine 2,8 km für 86,50. Der Monteur fährt jeden Tag hin.
+        weit = hotel("Weit weg", 50.79804, 8.923191, 660, bewertung=8.8, anzahl=112, hid=1)
+        nah = hotel("Gleich um die Ecke", 50.759249, 8.792306, 692, bewertung=8.1, anzahl=133, hid=2)
+        baustelle = {
+            "kurzname": "Marburg",
+            "koordinaten": {"lat": 50.7805, "lon": 8.7707},
+            "max_entfernung_km": 12,
+        }
+        kriterien = dict(KRITERIEN, max_entfernung_km=12)
+        treffer = auswerten([weit, nah], baustelle, zimmer=2, anzahl_naechte=4,
+                            kriterien=kriterien)
+        self.assertEqual(treffer[0].name, "Gleich um die Ecke")
+
+    def test_deutlich_guenstiger_gewinnt_weiterhin(self):
+        # Gegenprobe: Bei echtem Preisunterschied soll der Preis ziehen
+        teuer_nah = hotel("Teuer und nah", 53.5400, 8.5810, 470, hid=1)
+        billig_fern = hotel("Günstig, etwas weiter", 53.5600, 8.6000, 240, hid=2)
+        treffer = auswerten([teuer_nah, billig_fern], BAUSTELLE, zimmer=1,
+                            anzahl_naechte=4, kriterien=KRITERIEN)
+        self.assertEqual(treffer[0].name, "Günstig, etwas weiter")
+
+
+class FehlendeBewertung(unittest.TestCase):
+    """Kein Bewertungsfeld heißt unbewertet, nicht mit 0,0 bewertet."""
+
+    @staticmethod
+    def _ohne_bewertung():
+        roh = hotel("Neu eröffnet", 53.5400, 8.5810, 300)
+        roh["rating"] = {}
+        return roh
+
+    def test_grund_nennt_die_fehlende_bewertung(self):
+        treffer = auswerten([self._ohne_bewertung()], BAUSTELLE, zimmer=1,
+                            anzahl_naechte=4, kriterien=KRITERIEN)
+        self.assertIn("keine Bewertung", treffer[0].ausschluss)
+        self.assertNotIn("0.0", treffer[0].ausschluss)
+
+    def test_kein_doppelter_grund_fuer_dieselbe_luecke(self):
+        treffer = auswerten([self._ohne_bewertung()], BAUSTELLE, zimmer=1,
+                            anzahl_naechte=4, kriterien=KRITERIEN)
+        self.assertEqual(treffer[0].ausschluss.count(";"), 0)
+
+    def test_bewertetes_haus_bleibt_unberuehrt(self):
+        treffer = auswerten([hotel("Bewertet", 53.5400, 8.5810, 300, bewertung=8.5)],
+                            BAUSTELLE, zimmer=1, anzahl_naechte=4, kriterien=KRITERIEN)
+        self.assertTrue(treffer[0].hat_bewertung)
+        self.assertTrue(treffer[0].geeignet)
+
+    def test_tabelle_schreibt_ohne_bewertung_statt_null_komma_null(self):
+        gut = hotel("Passt", 53.5400, 8.5810, 300, bewertung=8.5, hid=1)
+        roh = self._ohne_bewertung()
+        roh["id"] = 2
+        treffer = auswerten([gut, roh], BAUSTELLE, zimmer=1, anzahl_naechte=4,
+                            kriterien=dict(KRITERIEN, mindestbewertung=0,
+                                           mindestanzahl_bewertungen=0))
+        text = uebersicht(treffer)
+        self.assertIn("ohne Bewertung", text)

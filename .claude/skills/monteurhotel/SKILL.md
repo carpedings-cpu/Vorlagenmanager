@@ -52,7 +52,14 @@ sieht sie nicht.
 
 ### 2. Live suchen
 
-`mcp__Booking_com__accommodations_search` mit den Werten aus dem Auftrag:
+Dafür das Hotelsuch-Werkzeug der Session nehmen, das nach Koordinaten,
+Zeitraum und Ausstattung sucht und die Verfügbarkeit mitliefert (Booking,
+sonst Trivago oder Tripadvisor). Den Werkzeugnamen nicht aus diesem Text
+übernehmen: Er trägt je nach Session ein anderes Präfix. Erst die verfügbaren
+Werkzeuge durchsehen, dann das passende aufrufen. Ist keines da, sagen statt
+schätzen; die Verfügbarkeit ist der Kern der Sache.
+
+Parameter aus dem Auftrag:
 
 | Parameter | Wert |
 |---|---|
@@ -86,8 +93,8 @@ die Aussortierten mit Grund. Die Tabelle nicht neu erfinden, sondern
 ### 4. Offene Punkte klären
 
 Für die Treffer mit 🔍 beim Parkplatz und immer für die Frühstückszeit:
-`mcp__Booking_com__answer_property_qa_by_ids_v2` mit den Hotel-IDs aus
-`--ids`. Sinnvolle Fragen:
+das Detailwerkzeug derselben Hotelquelle, das Rückfragen zu einzelnen Häusern
+beantwortet, mit den Hotel-IDs aus `--ids`. Sinnvolle Fragen:
 
 - Durchfahrtshöhe der Garage, wenn nur Parkhaus angegeben ist
 - ab wann Frühstück serviert wird, werktags

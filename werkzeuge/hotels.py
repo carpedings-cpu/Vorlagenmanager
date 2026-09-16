@@ -276,6 +276,7 @@ class Treffer:
     park: Parkurteil
     url: str
     ausschluss: str = ""
+    hat_bewertung: bool = True
     punkte: float = 0.0
     ausstattung: list[str] = field(default_factory=list)
 
@@ -362,6 +363,9 @@ def auswerten(
         )
         gesamt = _zahl(preis_daten.get("book"))
         pro_nacht = gesamt / zimmer / anzahl_naechte if gesamt else 0.0
+        # Fehlt das Bewertungsfeld ganz, ist das Hotel nicht schlecht bewertet,
+        # sondern unbewertet. Der Unterschied gehört in den Ausschlussgrund.
+        hat_bewertung = bewertung_daten.get("review_score") is not None
         bewertung = _zahl(bewertung_daten.get("review_score"))
         anzahl_bew = int(_zahl(bewertung_daten.get("number_of_reviews")))
         park = beurteile_parkplatz(ausstattung, fahrzeughoehe_m)
@@ -369,9 +373,13 @@ def auswerten(
         gruende = []
         if entfernung > max_entfernung:
             gruende.append(f"{entfernung:.1f} km, mehr als {max_entfernung:.0f} km")
-        if bewertung < min_bewertung:
+        # mindestbewertung 0 heißt: Bewertung ist egal. Dann fliegt ein noch
+        # unbewertetes Haus auch nicht wegen der fehlenden Bewertung raus.
+        if not hat_bewertung and min_bewertung > 0:
+            gruende.append("keine Bewertung vorhanden, vor dem Buchen ansehen")
+        elif bewertung < min_bewertung:
             gruende.append(f"Bewertung {bewertung:.1f} unter {min_bewertung:.1f}")
-        if min_anzahl and anzahl_bew < min_anzahl:
+        elif min_anzahl and anzahl_bew < min_anzahl:
             gruende.append(f"nur {anzahl_bew} Bewertungen")
         if max_nacht and pro_nacht > max_nacht:
             gruende.append(f"{pro_nacht:.0f} EUR/Nacht über Limit {max_nacht:.0f} EUR")
@@ -395,6 +403,7 @@ def auswerten(
                 park=park,
                 url=roh.get("url", ""),
                 ausschluss="; ".join(gruende),
+                hat_bewertung=hat_bewertung,
                 ausstattung=list(ausstattung),
             )
         )
@@ -422,14 +431,17 @@ def _punkte_vergeben(
     gewicht_parken = _zahl(kriterien.get("gewicht_parken"), 10.0)
 
     preise = [t.preis_pro_nacht for t in geeignete if t.preis_pro_nacht > 0]
-    billigst = min(preise) if preise else 0.0
     teuerst = max(preise) if preise else 0.0
-    spanne = teuerst - billigst
+
+    # Bezugsgröße ist das Preislimit, nicht die Spanne der Treffer. Sonst wird
+    # aus vier Euro Unterschied zwischen zwei Hotels die volle Punktzahl, und
+    # ein Haus acht Kilometer weiter draußen gewinnt wegen fast nichts.
+    bezug = _zahl(kriterien.get("max_preis_pro_nacht"), 0.0) or teuerst
 
     for t in treffer:
         nah = 1 - min(t.entfernung_km / max_entfernung, 1.0) if max_entfernung else 0.0
-        if spanne > 0 and t.preis_pro_nacht > 0:
-            guenstig = 1 - (t.preis_pro_nacht - billigst) / spanne
+        if bezug > 0 and t.preis_pro_nacht > 0:
+            guenstig = max(0.0, 1 - t.preis_pro_nacht / bezug)
         else:
             guenstig = 1.0
         gut = max(0.0, min((t.bewertung - 7.0) / 3.0, 1.0))
@@ -461,7 +473,9 @@ def uebersicht(treffer: list[Treffer], anzahl: int = 5) -> str:
         zeilen.append(
             f"| {nr} | [{t.name}]({t.url}) | {t.entfernung_km:.1f} km "
             f"(ca. {t.fahrzeit_min} min) | {t.preis_pro_nacht:.2f} | "
-            f"{t.bewertung:.1f} ({t.anzahl_bewertungen}) | "
+            + (f"{t.bewertung:.1f} ({t.anzahl_bewertungen})" if t.hat_bewertung
+               else "ohne Bewertung")
+            + " | "
             f"{t.park.zeichen} {t.park.hinweis} |"
         )
 
