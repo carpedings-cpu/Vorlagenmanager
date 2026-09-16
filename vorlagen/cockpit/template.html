@@ -5,96 +5,128 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Monteurhotel Cockpit</title>
 <style>
+/* KPC Corporate Design. Die Tokens stehen vollständig im hellen :root, die
+   dunklen Blöcke definieren nur um. Sonst bleibt im Systemmodus, der gar
+   keine Markierung setzt, eine Farbe undefiniert. */
 :root{
-  --dunkel:#2d2926; --mittel:#6b5040; --sand:#c8a882;
-  --papier:#f7f5f2; --weiss:#fff; --linie:#e2dcd4;
-  --gut:#4a7c59; --warn:#b8860b; --stop:#a4433a;
+  --grund:#f7f5f2; --flaeche:#ffffff; --linie:#e2dcd4;
+  --text:#2d2926; --gedimmt:#6b5040; --akzent:#c8a882;
+  --kopf-grund:#2d2926; --kopf-text:#f7f5f2;
+  --nav-grund:#6b5040; --nav-text:#f7f5f2; --nav-aktiv-text:#2d2926;
+  --gut:#3d6b4a; --gut-grund:#e4ede6;
+  --warn:#8a6410; --warn-grund:#f6eed8;
+  --stop:#963b32; --stop-grund:#f3e0de;
+  --code-grund:#f7f5f2;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --grund:#17140f; --flaeche:#221d18; --linie:#3a322a;
+    --text:#ece6de; --gedimmt:#c9ab88; --akzent:#c8a882;
+    --kopf-grund:#0f0d0a; --kopf-text:#ece6de;
+    --nav-grund:#2f2620; --nav-text:#ece6de; --nav-aktiv-text:#ece6de;
+    --gut:#8fc79f; --gut-grund:#1e2b22;
+    --warn:#ddb45e; --warn-grund:#302716;
+    --stop:#e59187; --stop-grund:#32211f;
+    --code-grund:#1b1713;
+  }
+}
+:root[data-theme="dark"]{
+  --grund:#17140f; --flaeche:#221d18; --linie:#3a322a;
+  --text:#ece6de; --gedimmt:#c9ab88; --akzent:#c8a882;
+  --kopf-grund:#0f0d0a; --kopf-text:#ece6de;
+  --nav-grund:#2f2620; --nav-text:#ece6de; --nav-aktiv-text:#ece6de;
+  --gut:#8fc79f; --gut-grund:#1e2b22;
+  --warn:#ddb45e; --warn-grund:#302716;
+  --stop:#e59187; --stop-grund:#32211f;
+  --code-grund:#1b1713;
 }
 *{box-sizing:border-box}
 body{
-  margin:0;background:var(--papier);color:var(--dunkel);
+  margin:0;background:var(--grund);color:var(--text);
   font-family:"Roboto Condensed","Arial Narrow",system-ui,sans-serif;
   font-weight:300;font-size:16px;line-height:1.45;
 }
 header{
-  background:var(--dunkel);color:var(--papier);
-  padding:14px 20px;display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;
+  background:var(--kopf-grund);color:var(--kopf-text);
+  padding:14px 16px;display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;
 }
 header .marke{font-size:22px;font-weight:700;letter-spacing:.5px}
-header .titel{font-size:18px;color:var(--sand)}
+header .titel{font-size:18px;color:var(--akzent)}
 header .stand{margin-left:auto;font-size:13px;opacity:.75}
-nav{display:flex;background:var(--mittel);flex-wrap:wrap}
+nav{display:flex;background:var(--nav-grund);flex-wrap:wrap}
 nav button{
-  background:none;border:0;color:var(--papier);padding:11px 18px;
+  background:none;border:0;color:var(--nav-text);padding:11px 18px;
   font:inherit;font-size:15px;cursor:pointer;border-bottom:3px solid transparent;
 }
 nav button:hover{background:rgba(255,255,255,.08)}
-nav button.aktiv{background:var(--papier);color:var(--dunkel);border-bottom-color:var(--sand)}
-main{max-width:1100px;margin:0 auto;padding:18px 16px 60px}
+nav button:focus-visible{outline:2px solid var(--akzent);outline-offset:-3px}
+nav button.aktiv{background:var(--grund);color:var(--nav-aktiv-text);border-bottom-color:var(--akzent)}
+main{max-width:1100px;margin:0 auto;padding-block:18px 60px;padding-inline:16px}
 section{display:none}
 section.aktiv{display:block}
 .karte{
-  background:var(--weiss);border:1px solid var(--linie);border-radius:4px;
+  background:var(--flaeche);border:1px solid var(--linie);border-radius:4px;
   padding:16px;margin-bottom:16px;
 }
-.karte h2{margin:0 0 12px;font-size:19px;font-weight:700;color:var(--mittel)}
+.karte h2{margin:0 0 12px;font-size:19px;font-weight:700;color:var(--gedimmt)}
 .karte h3{margin:16px 0 8px;font-size:16px;font-weight:700}
 label{display:block;font-size:13px;text-transform:uppercase;letter-spacing:.6px;
-  color:var(--mittel);margin-bottom:4px}
+  color:var(--gedimmt);margin-bottom:4px}
 select,input[type=date],input[type=text],input[type=number],textarea{
   width:100%;padding:9px 10px;border:1px solid var(--linie);border-radius:3px;
-  font:inherit;background:var(--weiss);color:var(--dunkel);
+  font:inherit;background:var(--flaeche);color:var(--text);
 }
-select:focus,input:focus,textarea:focus{outline:2px solid var(--sand);outline-offset:-1px}
+select:focus,input:focus,textarea:focus{outline:2px solid var(--akzent);outline-offset:-1px}
 .reihe{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:14px}
 .leute{display:flex;flex-wrap:wrap;gap:8px}
 .person{
   display:flex;align-items:center;gap:7px;border:1px solid var(--linie);
-  border-radius:3px;padding:8px 12px;cursor:pointer;background:var(--weiss);
-  text-transform:none;letter-spacing:normal;font-size:16px;color:var(--dunkel);
+  border-radius:3px;padding:8px 12px;cursor:pointer;background:var(--flaeche);
+  text-transform:none;letter-spacing:normal;font-size:16px;color:var(--text);
   margin-bottom:0;
 }
-.person:hover{border-color:var(--sand)}
+.person:hover{border-color:var(--akzent)}
 .person input{margin:0;width:auto}
-.person.an{background:var(--sand);border-color:var(--mittel)}
-.person small{opacity:.7}
+.person.an{background:var(--akzent);border-color:var(--gedimmt);color:#2d2926}
+.person small{opacity:.75}
 button.tat{
-  background:var(--mittel);color:var(--weiss);border:0;border-radius:3px;
+  background:var(--gedimmt);color:#fff;border:0;border-radius:3px;
   padding:10px 16px;font:inherit;font-size:15px;cursor:pointer;
 }
-button.tat:hover{background:var(--dunkel)}
-button.leise{background:none;color:var(--mittel);border:1px solid var(--linie)}
-button.leise:hover{background:var(--papier);color:var(--dunkel)}
+button.tat:hover{filter:brightness(1.15)}
+button.leise{background:none;color:var(--gedimmt);border:1px solid var(--linie)}
+button.leise:hover{background:var(--grund);color:var(--text)}
+button:focus-visible{outline:2px solid var(--akzent);outline-offset:2px}
 .knopfreihe{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 pre.block{
-  background:var(--papier);border:1px solid var(--linie);border-left:3px solid var(--sand);
+  background:var(--code-grund);border:1px solid var(--linie);
+  border-left:3px solid var(--akzent);color:var(--text);
   padding:12px;border-radius:3px;white-space:pre-wrap;word-break:break-word;
   font-family:ui-monospace,"Consolas",monospace;font-size:13.5px;margin:0;
 }
+.tabellenrahmen{overflow-x:auto}
 table{width:100%;border-collapse:collapse;font-size:14.5px}
-th{text-align:left;padding:8px 10px;background:var(--papier);color:var(--mittel);
+th{text-align:left;padding:8px 10px;background:var(--grund);color:var(--gedimmt);
   font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.5px;
   border-bottom:2px solid var(--linie)}
 td{padding:8px 10px;border-bottom:1px solid var(--linie);vertical-align:top}
-tr:hover td{background:var(--papier)}
+td.zahl{font-variant-numeric:tabular-nums}
+tr:hover td{background:var(--grund)}
 .fahne{display:inline-block;padding:2px 8px;border-radius:2px;font-size:12.5px;
   font-weight:700;letter-spacing:.3px}
-.f-gut{background:#e4ede6;color:var(--gut)}
-.f-warn{background:#f6eed8;color:var(--warn)}
-.f-stop{background:#f3e0de;color:var(--stop)}
-.hinweis{font-size:14px;color:var(--mittel);margin:10px 0 0}
+.f-gut{background:var(--gut-grund);color:var(--gut)}
+.f-warn{background:var(--warn-grund);color:var(--warn)}
+.f-stop{background:var(--stop-grund);color:var(--stop)}
+.hinweis{font-size:14px;color:var(--gedimmt);margin:10px 0 0}
 .hinweis.stop{color:var(--stop);font-weight:700}
-.leer{color:var(--mittel);font-style:italic;padding:14px 0}
-.balken{position:relative;height:26px;background:var(--papier);border-radius:3px;overflow:hidden}
-.balken span{position:absolute;top:0;bottom:0;background:var(--sand);
-  border-left:2px solid var(--mittel);font-size:12px;padding:4px 6px;white-space:nowrap;overflow:hidden}
-.monat{font-size:13px;color:var(--mittel);margin-bottom:4px}
-footer{max-width:1100px;margin:0 auto;padding:0 16px 30px;font-size:13px;color:var(--mittel)}
+.leer{color:var(--gedimmt);font-style:italic;padding:14px 0}
+footer{max-width:1100px;margin:0 auto;padding:0 16px 30px;font-size:13px;color:var(--gedimmt)}
 @media(max-width:620px){
   header .stand{width:100%;margin-left:0}
-  main{padding:12px 10px 50px}
+  main{padding-inline:16px;padding-block:12px 50px}
   td,th{padding:6px 5px;font-size:13.5px}
 }
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
 <body>
@@ -181,8 +213,16 @@ footer{max-width:1100px;margin:0 auto;padding:0 16px 30px;font-size:13px;color:v
       <button class="leise" id="bExport">Als YAML exportieren</button>
     </div>
     <p class="hinweis">Eingetragen wird zunächst nur in diesem Browser. Der
-      Export schreibt die Datei, die in den Datenordner unter
-      <code>hotels/buchungen.yaml</code> gehört.</p>
+      Export liefert den Inhalt für den Datenordner unter
+      <code>hotels/buchungen.yaml</code>.</p>
+    <div id="bAusgabe" hidden>
+      <h3>buchungen.yaml</h3>
+      <pre class="block" id="bAusgabeText"></pre>
+      <div class="knopfreihe">
+        <button class="tat" data-kopie="bAusgabeText">Kopieren</button>
+        <button class="leise" data-schliessen="bAusgabe">Schließen</button>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -204,6 +244,14 @@ footer{max-width:1100px;margin:0 auto;padding:0 16px 30px;font-size:13px;color:v
     <div class="knopfreihe">
       <button class="tat" id="hSpeichern">Eintragen</button>
       <button class="leise" id="hExport">Als YAML exportieren</button>
+    </div>
+    <div id="hAusgabe" hidden>
+      <h3>hoehen.yaml</h3>
+      <pre class="block" id="hAusgabeText"></pre>
+      <div class="knopfreihe">
+        <button class="tat" data-kopie="hAusgabeText">Kopieren</button>
+        <button class="leise" data-schliessen="hAusgabe">Schließen</button>
+      </div>
     </div>
   </div>
   <div class="karte">
@@ -526,9 +574,9 @@ function belegungZeichnen(){
     </tr>`;
   });
 
-  stelle("belegListe").innerHTML = `<table>
+  stelle("belegListe").innerHTML = `<div class="tabellenrahmen"><table>
     <thead><tr><th>Zeitraum</th><th>Baustelle</th><th>Hotel</th><th>Wer</th><th>Summe</th></tr></thead>
-    <tbody>${zeilen.join("")}</tbody></table>`;
+    <tbody>${zeilen.join("")}</tbody></table></div>`;
 }
 
 /* --- Hotels ------------------------------------------------------------- */
@@ -555,9 +603,9 @@ function hoehenZeichnen(){
       <td><small>${text(h.geprueft_am || "")}</small></td>
     </tr>`;
   });
-  stelle("hoehenListe").innerHTML = `<table>
+  stelle("hoehenListe").innerHTML = `<div class="tabellenrahmen"><table>
     <thead><tr><th>Hotel</th><th>Durchfahrt</th><th>Urteil</th><th>Geprüft</th></tr></thead>
-    <tbody>${zeilen.join("")}</tbody></table>`;
+    <tbody>${zeilen.join("")}</tbody></table></div>`;
 }
 
 function haeuserZeichnen(){
@@ -586,15 +634,15 @@ function haeuserZeichnen(){
       <td>${text(letzte.fazit || "")}</td>
     </tr>`;
   });
-  stelle("hausListe").innerHTML = `<table>
+  stelle("hausListe").innerHTML = `<div class="tabellenrahmen"><table>
     <thead><tr><th>Hotel</th><th>Gebucht</th><th>Schnitt je Nacht</th><th>Zuletzt notiert</th></tr></thead>
-    <tbody>${zeilen.join("")}</tbody></table>`;
+    <tbody>${zeilen.join("")}</tbody></table></div>`;
 }
 
 /* --- Stammdaten --------------------------------------------------------- */
 
 function stammZeichnen(){
-  stelle("stammBst").innerHTML = `<table>
+  stelle("stammBst").innerHTML = `<div class="tabellenrahmen"><table>
     <thead><tr><th>Kürzel</th><th>Baustelle</th><th>Ort</th><th>Radius</th><th>Limit</th></tr></thead>
     <tbody>${BAUSTELLEN.map(b => {
       const limit = b.max_preis_pro_nacht != null
@@ -607,16 +655,16 @@ function stammZeichnen(){
         <td>${text(b.max_entfernung_km || KRITERIEN.max_entfernung_km)} km</td>
         <td>${text(limit)}</td>
       </tr>`;
-    }).join("")}</tbody></table>`;
+    }).join("")}</tbody></table></div>`;
 
-  stelle("stammMont").innerHTML = `<table>
+  stelle("stammMont").innerHTML = `<div class="tabellenrahmen"><table>
     <thead><tr><th>Kürzel</th><th>Name</th><th>Fahrzeug</th><th>Höhe</th></tr></thead>
     <tbody>${MONTEURE.map(m => `<tr>
       <td><strong>${text(m.kuerzel)}</strong></td>
       <td>${text(m.name)}${m.hinweis ? `<br><small>${text(m.hinweis)}</small>` : ""}</td>
       <td>${text(m.fahrzeug)}</td>
       <td>${m.fahrzeughoehe_m ? Number(m.fahrzeughoehe_m).toFixed(2) + " m" : "-"}</td>
-    </tr>`).join("")}</tbody></table>`;
+    </tr>`).join("")}</tbody></table></div>`;
 
   const zeigen = [
     ["Mindestbewertung", KRITERIEN.mindestbewertung],
@@ -626,9 +674,9 @@ function stammZeichnen(){
     ["Frühstück ab", KRITERIEN.fruehstueck_ab],
     ["Direktanfrage ab", KRITERIEN.direktanfrage_ab_naechten + " Nächten"]
   ];
-  stelle("stammKrit").innerHTML = `<table><tbody>${
+  stelle("stammKrit").innerHTML = `<div class="tabellenrahmen"><table><tbody>${
     zeigen.map(([k,v]) => `<tr><td>${text(k)}</td><td><strong>${text(v)}</strong></td></tr>`).join("")
-  }</tbody></table>`;
+  }</tbody></table></div>`;
 }
 
 /* --- Eintragen und Exportieren ------------------------------------------ */
@@ -687,7 +735,7 @@ function buchungenExportieren(){
     if(b.gebucht_am) zeilen.push(`    gebucht_am: ${yamlZeichenkette(b.gebucht_am)}`);
     zeilen.push(`    fazit: ${yamlZeichenkette(b.fazit || "")}`);
   });
-  herunterladen("buchungen.yaml", zeilen.join("\n") + "\n");
+  ausgeben("bAusgabe", zeilen.join("\n") + "\n");
 }
 
 function hoehenExportieren(){
@@ -703,18 +751,17 @@ function hoehenExportieren(){
     zeilen.push(`    geprueft_am: ${yamlZeichenkette(h.geprueft_am || "")}`);
     zeilen.push(`    quelle: ${yamlZeichenkette(h.quelle || "Rückfrage beim Haus")}`);
   });
-  herunterladen("hoehen.yaml", zeilen.join("\n") + "\n");
+  ausgeben("hAusgabe", zeilen.join("\n") + "\n");
 }
 
-function herunterladen(name, inhalt){
-  const blob = new Blob([inhalt], {type:"text/yaml;charset=utf-8"});
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = name;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+function ausgeben(bereichId, inhalt){
+  /* Ein vom Skript ausgelöster Download ist in der veröffentlichten Fassung
+     wirkungslos: Der Knopf täte scheinbar nichts. Deshalb wird der Inhalt
+     immer angezeigt und kann von dort kopiert werden. */
+  const bereich = stelle(bereichId);
+  stelle(bereichId + "Text").textContent = inhalt;
+  bereich.hidden = false;
+  bereich.scrollIntoView({block:"nearest"});
 }
 
 /* --- Verdrahten --------------------------------------------------------- */
@@ -735,6 +782,12 @@ document.querySelectorAll("[data-kopie]").forEach(knopf => {
       auswahl.removeAllRanges();
       auswahl.addRange(bereich);
     }
+  });
+});
+
+document.querySelectorAll("[data-schliessen]").forEach(knopf => {
+  knopf.addEventListener("click", () => {
+    stelle(knopf.dataset.schliessen).hidden = true;
   });
 });
 

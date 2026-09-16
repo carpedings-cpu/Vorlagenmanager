@@ -3,6 +3,7 @@
 
     python3 werkzeuge/cockpit.py                    # in den Datenordner
     python3 werkzeuge/cockpit.py ~/Desktop/kpc.html # woandershin
+    python3 werkzeuge/cockpit.py --artifact <ziel>  # zum Veröffentlichen
 
 Die Stammdaten werden in die Datei hineingeschrieben, nicht nachgeladen: Die
 Seite soll ohne Server laufen, per Doppelklick und aus SharePoint heraus. Nach
@@ -79,7 +80,21 @@ def _hoehen() -> dict:
     }
 
 
-def erzeuge(ziel: Path | None = None) -> Path:
+def _ohne_rahmen(text: str) -> str:
+    """Schält Titel, Stil und Seiteninhalt aus dem vollständigen Dokument.
+
+    Beim Veröffentlichen setzt die Plattform doctype, html, head und body
+    selbst. Bleiben die eigenen stehen, wird das Dokument verschachtelt.
+    """
+    titel = re.search(r"<title>.*?</title>", text, re.S)
+    stil = re.search(r"<style>.*?</style>", text, re.S)
+    koerper = re.search(r"<body[^>]*>(.*)</body>", text, re.S)
+    if not (titel and stil and koerper):
+        raise ValueError("Template hat nicht die erwartete Form.")
+    return "\n".join([titel.group(0), stil.group(0), koerper.group(1).strip()])
+
+
+def erzeuge(ziel: Path | None = None, artifact: bool = False) -> Path:
     vorlage = repowurzel() / "vorlagen" / "cockpit" / "template.html"
     if not vorlage.exists():
         raise FileNotFoundError(f"{vorlage} fehlt.")
@@ -111,6 +126,9 @@ def erzeuge(ziel: Path | None = None) -> Path:
             + ", ".join(name for name, _ in offen)
         )
 
+    if artifact:
+        text = _ohne_rahmen(text)
+
     ziel = Path(ziel) if ziel else hotels.hotelordner() / "cockpit.html"
     ziel.parent.mkdir(parents=True, exist_ok=True)
     ziel.write_text(text, encoding="utf-8")
@@ -118,11 +136,15 @@ def erzeuge(ziel: Path | None = None) -> Path:
 
 
 def main() -> int:
-    if len(sys.argv) > 2:
+    argumente = sys.argv[1:]
+    artifact = "--artifact" in argumente
+    if artifact:
+        argumente.remove("--artifact")
+    if len(argumente) > 1:
         print(__doc__)
         return 1
     try:
-        ziel = erzeuge(sys.argv[1] if len(sys.argv) == 2 else None)
+        ziel = erzeuge(argumente[0] if argumente else None, artifact=artifact)
     except (FileNotFoundError, LookupError, ValueError) as fehler:
         print(f"Fehler: {fehler}", file=sys.stderr)
         return 1
