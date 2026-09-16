@@ -194,12 +194,11 @@ def befehl_auswerten(args: argparse.Namespace) -> int:
                 bester, auftrag["zimmer"], auftrag["zeitraum"]["naechte"]
             )
         )
-        offen = [t for t in geeignete[: args.anzahl] if t.park.status == "pruefen"]
-        if offen:
-            print(
-                "Vor dem Buchen klären: Parkplatz bei "
-                + ", ".join(t.name for t in offen)
-            )
+        vorschlaege = geeignete[: args.anzahl]
+        print(
+            "Vor dem Buchen klären: Durchfahrtshöhe bei "
+            + ", ".join(t.name for t in vorschlaege)
+        )
         if auftrag["suche"].get("fruehstueck_ab"):
             print(
                 f"Ebenfalls klären: Frühstück ab "

@@ -356,3 +356,18 @@ class FehlendeBewertung(unittest.TestCase):
                                            mindestanzahl_bewertungen=0))
         text = uebersicht(treffer)
         self.assertIn("ohne Bewertung", text)
+
+
+class HoeheWirdNichtBehauptet(unittest.TestCase):
+    """Praxisfall Limehome Berlin: grüner Stellplatz, trotzdem 2,00 m Schranke."""
+
+    def test_stellplatz_ohne_parkhaus_behauptet_keine_hoehe(self):
+        urteil = beurteile_parkplatz(["Privatparkplatz", "Parken vor Ort"])
+        self.assertEqual(urteil.status, "ok")
+        self.assertIn("unbestätigt", urteil.hinweis)
+        self.assertNotIn("ebenerdig", urteil.hinweis)
+
+    def test_uebersicht_fordert_die_hoehe_immer_an(self):
+        treffer = auswerten([hotel("Passt", 53.5400, 8.5810, 300)], BAUSTELLE,
+                            zimmer=1, anzahl_naechte=4, kriterien=KRITERIEN)
+        self.assertIn("Durchfahrtshöhe", uebersicht(treffer))

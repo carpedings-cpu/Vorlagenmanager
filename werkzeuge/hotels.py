@@ -231,7 +231,10 @@ def beurteile_parkplatz(
     irgendein = enthaelt(PARKEN_ALLGEMEIN)
 
     if ebenerdig and not hoehenrisiko:
-        return Parkurteil("ok", "eigener Stellplatz ebenerdig")
+        # Praxisfall Limehome Berlin: "Privatparkplatz, Parken vor Ort", kein
+        # Wort von Parkhaus, tatsächlich 2,00 m Schranke. Die Ausstattungsliste
+        # kennt keine Durchfahrtshöhe, also wird hier auch keine behauptet.
+        return Parkurteil("ok", "Stellplatz am Haus, Höhe unbestätigt")
     if ebenerdig and hoehenrisiko:
         return Parkurteil(
             "pruefen",
@@ -490,6 +493,10 @@ def uebersicht(treffer: list[Treffer], anzahl: int = 5) -> str:
     zeilen.append(
         "Entfernung ist Luftlinie, die Fahrzeit eine Schätzung "
         f"(Faktor {UMWEGFAKTOR} auf die Strecke, {DURCHSCHNITTSTEMPO_KMH:.0f} km/h)."
+    )
+    zeilen.append(
+        "Die Durchfahrtshöhe steht in keiner Ausstattungsliste. Vor dem Buchen "
+        "bei jedem Haus erfragen, auch bei ✅."
     )
     return "\n".join(zeilen)
 

@@ -16,9 +16,12 @@ die Verfügbarkeit aus der Live-Suche, die Bewertung der Treffer aus
    Suche für genau diesen Zeitraum, nicht aus der Historie und nicht aus dem
    Gedächtnis.
 2. **Parkplatz ist ein hartes Kriterium, kein Komfort.** Der Sprinter muss
-   nachts stehen können. „Parkplatz vorhanden" bei Booking heißt nicht
-   ebenerdig: Bei Hochdach gegen eine Tiefgarage mit 2,00 m Durchfahrt
-   verliert der Sprinter. Im Zweifel nachfragen statt annehmen.
+   nachts stehen können. Die Durchfahrtshöhe steht in **keiner**
+   Ausstattungsliste, auch nicht indirekt: Das Limehome Berlin führt
+   „Privatparkplatz, Parken vor Ort" ohne jede Erwähnung eines Parkhauses
+   und hat trotzdem 2,00 m Schranke. Deshalb die Höhe bei **jedem** Haus
+   erfragen, das du vorschlägst, auch bei grünem Häkchen. Das Häkchen heißt
+   nur, dass ein Stellplatz existiert, nicht dass er hoch genug ist.
 3. **Entfernung ist Luftlinie.** Das Skript rechnet keine Route. Die Fahrzeit
    ist eine Schätzung und wird auch so benannt. Bei Wasser, Bahntrasse oder
    Werksgelände dazwischen kann die echte Fahrt deutlich länger sein, das bei
@@ -92,11 +95,11 @@ die Aussortierten mit Grund. Die Tabelle nicht neu erfinden, sondern
 
 ### 4. Offene Punkte klären
 
-Für die Treffer mit 🔍 beim Parkplatz und immer für die Frühstückszeit:
+Für jeden Treffer, den du vorschlägst, und nicht nur für die mit 🔍:
 das Detailwerkzeug derselben Hotelquelle, das Rückfragen zu einzelnen Häusern
 beantwortet, mit den Hotel-IDs aus `--ids`. Sinnvolle Fragen:
 
-- Durchfahrtshöhe der Garage, wenn nur Parkhaus angegeben ist
+- Durchfahrtshöhe des Stellplatzes, immer, egal was die Ausstattung sagt
 - ab wann Frühstück serviert wird, werktags
 - was der Parkplatz pro Nacht kostet, falls nicht inklusive
 - ob es echte Einzelzimmer gibt oder nur Doppelzimmer zur Einzelnutzung
@@ -136,9 +139,10 @@ python3 werkzeuge/hotelsuche.py buchen <auftrag.json> --hotel "<Name>" \
     --preis <EUR/Nacht> --gesamt <Angebotssumme> --fazit "<kurz>"
 ```
 
-Das Fazit ist der eigentliche Wert der Historie. „Parkplatz eng, Sprinter
-passt gerade so" oder „Frühstück erst ab 6:30" erspart beim nächsten Einsatz
-eine halbe Stunde Recherche. Wenn Diana nach dem Einsatz eine Rückmeldung
+Das Fazit ist der eigentliche Wert der Historie. Die bestätigte
+Durchfahrtshöhe gehört immer hinein, weil sie sonst nirgends steht:
+„Stellplatz im Hof, Durchfahrt 3,20 m, Frühstück ab 6:00" erspart beim
+nächsten Einsatz eine halbe Stunde Recherche und einen Fehlgriff. Wenn Diana nach dem Einsatz eine Rückmeldung
 gibt, nachtragen.
 
 ## Neue Baustelle anlegen
