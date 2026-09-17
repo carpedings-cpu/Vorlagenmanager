@@ -28,6 +28,11 @@ die Verfügbarkeit aus der Live-Suche, die Bewertung der Treffer aus
 5. **Preis pro Zimmer und Nacht zeigen, nicht die Gesamtsumme.** Die Portale
    nennen den Gesamtpreis für alle Zimmer und alle Nächte. Das ist die Zahl,
    die man falsch vergleicht.
+6. **Ohne Bewertung ist kein Ausschlussgrund.** Ein Haus ohne Bewertung ist
+   nicht schlecht bewertet, es ist neu. Es steht in der Liste, trägt den
+   Hinweis und zählt bei der Bewertung mit der halben Punktzahl. Dazu
+   gehört ein kurzer Satz, was man über das Haus sonst weiß: Zimmerart,
+   Bad, Parkplatz. Eine schlechte Bewertung fliegt weiter raus.
 
 ## Ablauf
 

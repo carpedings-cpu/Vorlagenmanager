@@ -300,7 +300,11 @@ class RankingGegenDenPreis(unittest.TestCase):
 
 
 class FehlendeBewertung(unittest.TestCase):
-    """Kein Bewertungsfeld heißt unbewertet, nicht mit 0,0 bewertet."""
+    """Kein Bewertungsfeld heißt unbewertet, nicht mit 0,0 bewertet.
+
+    Und unbewertet heißt nicht aussortiert: Ein neu eröffnetes Haus kann
+    näher und billiger sein als alles, was schon Bewertungen gesammelt hat.
+    """
 
     @staticmethod
     def _ohne_bewertung():
@@ -308,16 +312,44 @@ class FehlendeBewertung(unittest.TestCase):
         roh["rating"] = {}
         return roh
 
-    def test_grund_nennt_die_fehlende_bewertung(self):
-        treffer = auswerten([self._ohne_bewertung()], BAUSTELLE, zimmer=1,
-                            anzahl_naechte=4, kriterien=KRITERIEN)
-        self.assertIn("keine Bewertung", treffer[0].ausschluss)
-        self.assertNotIn("0.0", treffer[0].ausschluss)
+    def test_unbewertet_fliegt_nicht_raus(self):
+        """Karlstadt: Das näheste und zweitbilligste Haus war unbewertet.
 
-    def test_kein_doppelter_grund_fuer_dieselbe_luecke(self):
+        Es fiel aus der Liste, ohne dass jemand es je gesehen hätte. Fehlende
+        Bewertung ist keine schlechte Bewertung.
+        """
         treffer = auswerten([self._ohne_bewertung()], BAUSTELLE, zimmer=1,
                             anzahl_naechte=4, kriterien=KRITERIEN)
-        self.assertEqual(treffer[0].ausschluss.count(";"), 0)
+        self.assertTrue(treffer[0].geeignet)
+        self.assertEqual(treffer[0].ausschluss, "")
+        self.assertFalse(treffer[0].hat_bewertung)
+
+    def test_schlechte_bewertung_fliegt_weiter_raus(self):
+        schlecht = hotel("Mies bewertet", 53.5400, 8.5810, 300, bewertung=6.2)
+        treffer = auswerten([schlecht], BAUSTELLE, zimmer=1, anzahl_naechte=4,
+                            kriterien=KRITERIEN)
+        self.assertFalse(treffer[0].geeignet)
+        self.assertIn("6.2", treffer[0].ausschluss)
+
+    def test_unbewertet_bekommt_die_halbe_bewertungspunktzahl(self):
+        """Weder geschönt noch bestraft: die Hälfte."""
+        ohne = self._ohne_bewertung()
+        ohne["id"] = 1
+        spitze = hotel("Spitzenbewertung", 53.5400, 8.5810, 300,
+                       bewertung=10.0, hid=2)
+        treffer = auswerten([ohne, spitze], BAUSTELLE, zimmer=1,
+                            anzahl_naechte=4, kriterien=KRITERIEN)
+        nach_id = {t.hotel_id: t for t in treffer}
+        # Gleiche Lage, gleicher Preis, gleicher Parkplatz. Der Unterschied in
+        # den Punkten ist damit genau die halbe Bewertungsgewichtung.
+        abstand = nach_id[2].punkte - nach_id[1].punkte
+        self.assertAlmostEqual(abstand, 10.0, delta=0.5)
+
+    def test_hinweis_unter_der_tabelle_erklaert_die_luecke(self):
+        treffer = auswerten([self._ohne_bewertung()], BAUSTELLE, zimmer=1,
+                            anzahl_naechte=4, kriterien=KRITERIEN)
+        text = uebersicht(treffer)
+        self.assertIn("noch unbewertet", text)
 
     def test_bewertetes_haus_bleibt_unberuehrt(self):
         treffer = auswerten([hotel("Bewertet", 53.5400, 8.5810, 300, bewertung=8.5)],

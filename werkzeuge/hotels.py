@@ -381,10 +381,13 @@ def auswerten(
         gruende = []
         if entfernung > max_entfernung:
             gruende.append(f"{entfernung:.1f} km, mehr als {max_entfernung:.0f} km")
-        # mindestbewertung 0 heißt: Bewertung ist egal. Dann fliegt ein noch
-        # unbewertetes Haus auch nicht wegen der fehlenden Bewertung raus.
-        if not hat_bewertung and min_bewertung > 0:
-            gruende.append("keine Bewertung vorhanden, vor dem Buchen ansehen")
+        # Ein Haus ohne Bewertung ist nicht schlecht bewertet, es ist unbekannt.
+        # Es fliegt deshalb nicht raus, sondern steht mit Hinweis in der Liste
+        # und verliert nur die Punkte, die es nicht belegen kann. Sonst fällt
+        # ein neues Haus, das näher und billiger liegt als alle bewerteten,
+        # still unter den Tisch - genau das ist in Karlstadt passiert.
+        if not hat_bewertung:
+            pass
         elif bewertung < min_bewertung:
             gruende.append(f"Bewertung {bewertung:.1f} unter {min_bewertung:.1f}")
         elif min_anzahl and anzahl_bew < min_anzahl:
@@ -455,7 +458,12 @@ def _punkte_vergeben(
             guenstig = max(0.0, 1 - t.preis_pro_nacht / bezug)
         else:
             guenstig = 1.0
-        gut = max(0.0, min((t.bewertung - 7.0) / 3.0, 1.0))
+        if t.hat_bewertung:
+            gut = max(0.0, min((t.bewertung - 7.0) / 3.0, 1.0))
+        else:
+            # Weder Gutes noch Schlechtes bekannt: die Hälfte der Punkte. Volle
+            # Punkte wären geschönt, keine wären eine Strafe für Neueröffnung.
+            gut = 0.5
         parken = {"ok": 1.0, "pruefen": 0.5, "kritisch": 0.0}[t.park.status]
 
         t.punkte = round(
@@ -507,6 +515,13 @@ def uebersicht(treffer: list[Treffer], anzahl: int = 5) -> str:
         "Nähe zur Baustelle, Preis, Bewertung und Parkplatz. Platz 1 hat davon "
         "das beste."
     )
+    if any(not t.hat_bewertung for t in geeignete):
+        zeilen.append(
+            "Häuser ohne Bewertung sind nicht schlecht bewertet, sondern noch "
+            "unbewertet, oft neu eröffnet. Sie zählen bei der Bewertung mit der "
+            "halben Punktzahl und sind vor dem Buchen einen Blick auf die Fotos "
+            "wert."
+        )
     return "\n".join(zeilen)
 
 
