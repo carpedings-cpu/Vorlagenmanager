@@ -65,7 +65,37 @@ def lade_baustellen() -> list[dict]:
 
 
 def lade_monteure() -> list[dict]:
-    return _lade_stammdatei("monteure.yaml", "monteure")
+    monteure = _lade_stammdatei("monteure.yaml", "monteure")
+    _pruefe_kuerzel(monteure)
+    return monteure
+
+
+def _pruefe_kuerzel(leute: list[dict]) -> None:
+    """Bricht ab, wenn zwei Personen dasselbe Kürzel tragen.
+
+    Sonst gewinnt beim Nachschlagen still die letzte, und im Hotel liegt der
+    falsche Mann. Zwei Nachnamen mit gleichem Anfangsbuchstaben reichen dafür
+    schon: Ivan Rusev und Ina Ruseva ergeben beide IR.
+    """
+    gesehen: dict[str, str] = {}
+    doppelt: list[str] = []
+    for person in leute:
+        schluessel = _normalisiere(person.get("kuerzel", ""))
+        if not schluessel:
+            continue
+        name = person.get("name") or person.get("kuerzel", "?")
+        if schluessel in gesehen:
+            doppelt.append(
+                f"{person.get('kuerzel')} für {gesehen[schluessel]} und {name}"
+            )
+        else:
+            gesehen[schluessel] = name
+    if doppelt:
+        raise ValueError(
+            "Kürzel doppelt vergeben: "
+            + "; ".join(doppelt)
+            + ". In monteure.yaml eindeutig machen."
+        )
 
 
 def lade_hoehen() -> dict:

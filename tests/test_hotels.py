@@ -502,3 +502,61 @@ class PauschaleNurBeiLangenAufenthalten(unittest.TestCase):
             self.assertIn("Frühstück serviert", text)
             self.assertIn("Durchfahrt", text)
             self.assertIn("Stornierung", text)
+
+
+class DoppelteKuerzel(unittest.TestCase):
+    """Zwei gleiche Kürzel schicken sonst still den falschen Mann ins Hotel."""
+
+    @staticmethod
+    def _schreiben(tmp, inhalt):
+        ordner = Path(tmp) / "hotels"
+        ordner.mkdir(parents=True, exist_ok=True)
+        (ordner / "monteure.yaml").write_text(inhalt, encoding="utf-8")
+        os.environ["VORLAGENMANAGER_DATEN"] = tmp
+
+    def tearDown(self):
+        os.environ.pop("VORLAGENMANAGER_DATEN", None)
+
+    def test_doppeltes_kuerzel_bricht_ab(self):
+        from hotels import lade_monteure
+
+        with tempfile.TemporaryDirectory() as tmp:
+            self._schreiben(tmp, """
+monteure:
+  - kuerzel: IR
+    name: Ivan Rusev
+  - kuerzel: IR
+    name: Ina Ruseva
+""")
+            with self.assertRaises(ValueError) as ctx:
+                lade_monteure()
+            meldung = str(ctx.exception)
+            self.assertIn("Ivan Rusev", meldung)
+            self.assertIn("Ina Ruseva", meldung)
+
+    def test_gross_und_kleinschreibung_zaehlt_als_gleich(self):
+        from hotels import lade_monteure
+
+        with tempfile.TemporaryDirectory() as tmp:
+            self._schreiben(tmp, """
+monteure:
+  - kuerzel: ir
+    name: Ivan Rusev
+  - kuerzel: IR
+    name: Ina Ruseva
+""")
+            with self.assertRaises(ValueError):
+                lade_monteure()
+
+    def test_eindeutige_kuerzel_gehen_durch(self):
+        from hotels import lade_monteure
+
+        with tempfile.TemporaryDirectory() as tmp:
+            self._schreiben(tmp, """
+monteure:
+  - kuerzel: IR
+    name: Ivan Rusev
+  - kuerzel: INR
+    name: Ina Ruseva
+""")
+            self.assertEqual(len(lade_monteure()), 2)

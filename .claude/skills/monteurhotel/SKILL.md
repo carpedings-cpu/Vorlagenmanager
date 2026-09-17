@@ -190,7 +190,20 @@ Eine falsche Koordinate verschiebt die gesamte Suche, ohne dass es auffällt.
 
 Neue Monteure analog in `hotels/monteure.yaml`, mit `fahrzeughoehe_m`. Der Wert
 entscheidet, ob Parkhäuser ausgeschlossen werden: Sprinter mit Hochdach rund
-2,60 m, Vito rund 1,95 m.
+2,60 m, ohne Hochdach rund 2,35 m, Vito rund 1,95 m. Leer heißt 2,60 m, also
+im Zweifel Parkhaus raus.
+
+**Kürzel müssen eindeutig sein.** Das Skript bricht sonst ab, und das ist
+Absicht: Zwei Leute mit demselben Kürzel würden beim Nachschlagen still
+denselben Eintrag liefern, und im Hotel läge der falsche Mann. Zwei Nachnamen
+mit gleichem Anfangsbuchstaben reichen dafür schon, etwa Ivan Rusev und Ina
+Ruseva. Im Zweifel nachfragen, wie die beiden sich in der
+Leistungsfeststellungs-App eintragen, und danach richten.
+
+Anlegen kann Diana Monteure auch selbst im Cockpit unter Stammdaten. Die
+liegen dann im Browser; der Exportknopf dort liefert den Inhalt für
+`monteure.yaml`. Spricht sie von jemandem, den das Skript nicht kennt, ist
+vermutlich der Export noch nicht gelaufen.
 
 ## Cockpit
 

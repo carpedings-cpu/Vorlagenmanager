@@ -269,6 +269,54 @@ footer{max-width:1100px;margin:0 auto;padding:0 16px 30px;font-size:13px;color:v
     <h2>Monteure</h2>
     <div id="stammMont"></div>
   </div>
+
+  <div class="karte">
+    <h2>Monteur anlegen</h2>
+    <div class="reihe">
+      <div>
+        <label for="mKuerzel">Kürzel</label>
+        <input type="text" id="mKuerzel" maxlength="5" placeholder="z. B. BP">
+      </div>
+      <div>
+        <label for="mName">Name</label>
+        <input type="text" id="mName" placeholder="Vor- und Nachname">
+      </div>
+      <div>
+        <label for="mFahrzeug">Fahrzeug</label>
+        <select id="mFahrzeug">
+          <option value="">unbekannt, es wird mit 2,60 m gerechnet</option>
+          <option value="Sprinter mit Hochdach|2.60">Sprinter mit Hochdach, 2,60 m</option>
+          <option value="Sprinter ohne Hochdach|2.35">Sprinter ohne Hochdach, 2,35 m</option>
+          <option value="Transporter flach|1.95">Vito oder ähnlich, 1,95 m</option>
+          <option value="eigene">andere Höhe eintragen</option>
+        </select>
+      </div>
+      <div id="mEigeneHoehe" hidden>
+        <label for="mHoehe">Höhe in Meter</label>
+        <input type="number" step="0.05" id="mHoehe" placeholder="2.60">
+      </div>
+    </div>
+    <div>
+      <label for="mHinweis">Hinweis</label>
+      <input type="text" id="mHinweis" placeholder="z. B. Frühstück ab 6:00, Nichtraucher">
+    </div>
+    <div class="knopfreihe">
+      <button class="tat" id="mSpeichern">Anlegen</button>
+      <button class="leise" id="mExport">Als YAML exportieren</button>
+    </div>
+    <p class="hinweis">Angelegt wird zunächst nur in diesem Browser, die Person
+      steht aber sofort in der Besetzungsauswahl. Der Export liefert den Inhalt
+      für <code>hotels/monteure.yaml</code> im Datenordner.</p>
+    <div id="mAusgabe" hidden>
+      <h3>monteure.yaml</h3>
+      <pre class="block" id="mAusgabeText"></pre>
+      <div class="knopfreihe">
+        <button class="tat" data-kopie="mAusgabeText">Kopieren</button>
+        <button class="leise" data-schliessen="mAusgabe">Schließen</button>
+      </div>
+    </div>
+    <div id="mEigene"></div>
+  </div>
   <div class="karte">
     <h2>Kriterien</h2>
     <div id="stammKrit"></div>
@@ -310,9 +358,11 @@ function merkeSchreiben(schluessel, wert){
 
 let eigeneBuchungen = merkeLesen("kpc_hotel_buchungen", []);
 let eigeneHoehen    = merkeLesen("kpc_hotel_hoehen", {});
+let eigeneLeute     = merkeLesen("kpc_hotel_monteure", []);
 
 function alleBuchungen(){ return BUCHUNGEN.concat(eigeneBuchungen); }
 function alleHoehen(){ return Object.assign({}, HOEHEN, eigeneHoehen); }
+function alleLeute(){ return MONTEURE.concat(eigeneLeute); }
 
 /* --- Hilfen ------------------------------------------------------------- */
 
@@ -368,7 +418,7 @@ function baustellenFuellen(feld){
 }
 
 function leuteFuellen(behaelter, praefix){
-  behaelter.innerHTML = MONTEURE
+  behaelter.innerHTML = alleLeute()
     .filter(m => !m.buero)
     .map(m => {
       const hoehe = m.fahrzeughoehe_m ? `${Number(m.fahrzeughoehe_m).toFixed(2)} m` : "Höhe offen";
@@ -387,7 +437,7 @@ function leuteFuellen(behaelter, praefix){
 
 function gewaehlteLeute(praefix){
   return Array.from(document.querySelectorAll(`input[name="${praefix}"]:checked`))
-    .map(k => MONTEURE.find(m => m.kuerzel === k.value))
+    .map(k => alleLeute().find(m => m.kuerzel === k.value))
     .filter(Boolean);
 }
 
@@ -560,7 +610,7 @@ function belegungZeichnen(){
 
   const zeilen = liste.map(b => {
     const leute = (b.monteure || []).map(k => {
-      const m = MONTEURE.find(x => x.kuerzel === k);
+      const m = alleLeute().find(x => x.kuerzel === k);
       return m ? (m.name || k) : k;
     }).join(", ");
     const bst = baustelleNach(b.baustelle);
@@ -659,7 +709,7 @@ function stammZeichnen(){
 
   stelle("stammMont").innerHTML = `<div class="tabellenrahmen"><table>
     <thead><tr><th>Kürzel</th><th>Name</th><th>Fahrzeug</th><th>Höhe</th></tr></thead>
-    <tbody>${MONTEURE.map(m => `<tr>
+    <tbody>${alleLeute().map(m => `<tr>
       <td><strong>${text(m.kuerzel)}</strong></td>
       <td>${text(m.name)}${m.hinweis ? `<br><small>${text(m.hinweis)}</small>` : ""}</td>
       <td>${text(m.fahrzeug)}</td>
@@ -754,6 +804,100 @@ function hoehenExportieren(){
   ausgeben("hAusgabe", zeilen.join("\n") + "\n");
 }
 
+function eigeneLeuteZeichnen(){
+  const behaelter = stelle("mEigene");
+  if(!eigeneLeute.length){ behaelter.innerHTML = ""; return; }
+  behaelter.innerHTML = `<h3>In diesem Browser angelegt</h3>
+    <div class="tabellenrahmen"><table>
+    <thead><tr><th>Kürzel</th><th>Name</th><th>Fahrzeug</th><th></th></tr></thead>
+    <tbody>${eigeneLeute.map((m, i) => `<tr>
+      <td><strong>${text(m.kuerzel)}</strong></td>
+      <td>${text(m.name)}</td>
+      <td>${text(m.fahrzeug)}${m.fahrzeughoehe_m ? ` (${Number(m.fahrzeughoehe_m).toFixed(2)} m)` : ""}</td>
+      <td><button class="leise" data-weg="${i}">Entfernen</button></td>
+    </tr>`).join("")}</tbody></table></div>`;
+  behaelter.querySelectorAll("[data-weg]").forEach(knopf => {
+    knopf.addEventListener("click", () => {
+      eigeneLeute.splice(Number(knopf.dataset.weg), 1);
+      merkeSchreiben("kpc_hotel_monteure", eigeneLeute);
+      leuteNeuZeichnen();
+    });
+  });
+}
+
+function leuteNeuZeichnen(){
+  /* Die Besetzungsauswahl wird neu aufgebaut, deshalb vorher merken, wer
+     angehakt war, und danach wieder setzen. Sonst verliert man die Auswahl,
+     nur weil man nebenbei jemanden angelegt hat. */
+  const warenAn = gewaehlteLeute("suche").map(m => m.kuerzel);
+  leuteFuellen(stelle("leute"), "suche");
+  leuteFuellen(stelle("bLeute"), "buchung");
+  warenAn.forEach(k => {
+    const kasten = document.querySelector(`#leute input[value="${k}"]`);
+    if(kasten){ kasten.checked = true; kasten.closest(".person").classList.add("an"); }
+  });
+  stammZeichnen();
+  eigeneLeuteZeichnen();
+  auftragZeichnen();
+}
+
+function monteurAnlegen(){
+  const kuerzel = stelle("mKuerzel").value.trim().toUpperCase();
+  const name = stelle("mName").value.trim();
+  if(!kuerzel || !name){ alert("Kürzel und Name werden gebraucht."); return; }
+  if(!/^[A-ZÄÖÜ0-9]{1,5}$/.test(kuerzel)){
+    alert("Das Kürzel darf nur aus Buchstaben und Ziffern bestehen, höchstens fünf.");
+    return;
+  }
+  // Dieselbe Sperre wie im Skript: Zwei gleiche Kürzel schicken sonst den
+  // falschen Mann ins Hotel.
+  const belegt = alleLeute().find(m => (m.kuerzel || "").toUpperCase() === kuerzel);
+  if(belegt){
+    alert(`Das Kürzel ${kuerzel} hat schon ${belegt.name || "jemand"}. Bitte ein anderes wählen.`);
+    return;
+  }
+
+  const wahl = stelle("mFahrzeug").value;
+  let fahrzeug = "", hoehe = null;
+  if(wahl === "eigene"){
+    hoehe = zahlOder(stelle("mHoehe").value, 0) || null;
+    fahrzeug = hoehe ? `eigene Angabe` : "";
+    if(!hoehe){ alert("Bitte die Höhe in Meter eintragen."); return; }
+  }else if(wahl){
+    const [bezeichnung, meter] = wahl.split("|");
+    fahrzeug = bezeichnung;
+    hoehe = zahlOder(meter, null);
+  }
+
+  eigeneLeute.push({
+    kuerzel: kuerzel,
+    name: name,
+    fahrzeug: fahrzeug,
+    fahrzeughoehe_m: hoehe,
+    hinweis: stelle("mHinweis").value.trim(),
+    buero: false
+  });
+  merkeSchreiben("kpc_hotel_monteure", eigeneLeute);
+  ["mKuerzel","mName","mHoehe","mHinweis"].forEach(id => { stelle(id).value = ""; });
+  stelle("mFahrzeug").value = "";
+  stelle("mEigeneHoehe").hidden = true;
+  leuteNeuZeichnen();
+}
+
+function monteureExportieren(){
+  const zeilen = ["# Aus dem Cockpit exportiert. Gehört nach hotels/monteure.yaml.",
+                  "# Kürzel müssen eindeutig sein.", "monteure:"];
+  alleLeute().forEach(m => {
+    zeilen.push(`  - kuerzel: ${yamlZeichenkette(m.kuerzel)}`);
+    zeilen.push(`    name: ${yamlZeichenkette(m.name || "")}`);
+    zeilen.push(`    fahrzeug: ${yamlZeichenkette(m.fahrzeug || "")}`);
+    zeilen.push(`    fahrzeughoehe_m:${m.fahrzeughoehe_m ? " " + Number(m.fahrzeughoehe_m) : ""}`);
+    if(m.buero) zeilen.push(`    buero: true`);
+    zeilen.push(`    hinweis: ${yamlZeichenkette(m.hinweis || "")}`);
+  });
+  ausgeben("mAusgabe", zeilen.join("\n") + "\n");
+}
+
 function ausgeben(bereichId, inhalt){
   /* Ein vom Skript ausgelöster Download ist in der veröffentlichten Fassung
      wirkungslos: Der Knopf täte scheinbar nichts. Deshalb wird der Inhalt
@@ -799,6 +943,12 @@ stelle("zuBooking").addEventListener("click", () => {
 ["bst","von","bis"].forEach(id =>
   stelle(id).addEventListener("change", auftragZeichnen));
 
+stelle("mFahrzeug").addEventListener("change", () => {
+  stelle("mEigeneHoehe").hidden = stelle("mFahrzeug").value !== "eigene";
+});
+stelle("mSpeichern").addEventListener("click", monteurAnlegen);
+stelle("mExport").addEventListener("click", monteureExportieren);
+
 stelle("bSpeichern").addEventListener("click", jaEintragen);
 stelle("bExport").addEventListener("click", buchungenExportieren);
 stelle("hExport").addEventListener("click", hoehenExportieren);
@@ -825,6 +975,7 @@ baustellenFuellen(stelle("bst"));
 baustellenFuellen(stelle("bBst"));
 leuteFuellen(stelle("leute"), "suche");
 leuteFuellen(stelle("bLeute"), "buchung");
+eigeneLeuteZeichnen();
 belegungZeichnen();
 hoehenZeichnen();
 haeuserZeichnen();
