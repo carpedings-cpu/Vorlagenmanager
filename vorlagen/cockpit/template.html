@@ -181,13 +181,12 @@ footer{max-width:1100px;margin:0 auto;padding:0 16px 30px;font-size:13px;color:v
     <h3>Befehl für die Kommandozeile</h3>
     <pre class="block" id="befehlText"></pre>
     <p class="hinweis">Der Auftrag oben geht an Claude, der die Verfügbarkeit
-      prüft. Der Booking-Link ist der Notnagel, wenn du selbst suchen willst:
-      Er trägt Ort, Zeitraum und Zimmerzahl, die Feinfilter setzt du dort.
-      Er setzt Ort, Zeitraum, Zimmerzahl, Frühstück und Mindestbewertung und
-      sortiert nach Preis-Leistung. Parkplatz und Preisobergrenze fehlen dort,
-      die musst du bei Booking selbst anklicken.
-      Öffnet er sich nicht, hier die Adresse zum Kopieren:</p>
+      prüft. Der Booking-Link ist nur der Notnagel und setzt bloß Ort und
+      Zeitraum: Zimmerzahl, Personen und Filter hat Booking aus dem Link nicht
+      übernommen, und ohne Möglichkeit das nachzuprüfen wird hier nicht weiter
+      geraten. Öffnet er sich nicht, hier die Adresse zum Kopieren:</p>
     <pre class="block" id="bookingUrl"></pre>
+    <p class="hinweis" id="bookingOffen"></p>
   </div>
 
   <div class="karte" id="warnungen" style="display:none">
@@ -517,47 +516,36 @@ function auftragZeichnen(){
   const knopf = stelle("zuBooking");
   knopf.href = ziel || "#";
   stelle("bookingUrl").textContent = ziel || "";
+  const besetzt = gewaehlteLeute("suche").length || 1;
+  stelle("bookingOffen").textContent = ziel
+    ? `Dort noch einzustellen: ${besetzt} Zimmer, ${besetzt} Erwachsene, `
+      + `Frühstück inklusive, Parkplatz, ab ${KRITERIEN.mindestbewertung || 8} Bewertung`
+      + (limit ? `, bis ${limit} EUR je Nacht.` : ".")
+    : "";
 
   stelle("ergebnis").style.display = "";
   warnungenZeichnen(bst, vonIso, bisIso, besetzung);
 }
 
 function bookingLink(){
+  /* Bewusst sparsam. Ort und Zeitraum kommen bei Booking an, alles Weitere
+     hat dreimal nicht funktioniert: Zimmerzahl und Belegung wurden ignoriert,
+     und die geratenen Filterparameter haben die Abfrage eher verschluckt als
+     verbessert. Nachprüfen lässt sich das nicht, Booking beantwortet
+     automatisierte Aufrufe mit einer Fehlerseite. Deshalb hier nur, was
+     belegt ist; den Rest stellt Diana dort selbst ein. */
   const bst = baustelleNach(stelle("bst").value);
   if(!bst || !stelle("von").value || !stelle("bis").value) return "";
-  const zimmer = gewaehlteLeute("suche").length || 1;
-
-  /* Als Suchbegriff gehört der Ort hinein, nicht die Straße: Booking sucht
-     nach Städten und Regionen und landet mit einer Hausnummer irgendwo.
-     Die genaue Lage kommt über die Koordinaten der Baustelle. */
   const p = new URLSearchParams({
     ss: bst.ort || bst.kurzname,
-    latitude: String(bst.koordinaten.lat),
-    longitude: String(bst.koordinaten.lon),
     checkin: stelle("von").value,
     checkout: stelle("bis").value,
-    no_rooms: String(zimmer),
-    group_adults: String(zimmer),
-    group_children: "0",
-    // Booking übernimmt die Belegung mal aus group_*, mal aus req_*. Beide
-    // zu setzen schadet nicht und trifft eher.
-    req_adults: String(zimmer),
-    req_children: "0",
-    req_rooms: String(zimmer),
     selected_currency: "EUR",
-    lang: "de-de",
-    // Bookings eigene Sortierung nach Preis-Leistung
-    order: "bayesian_review_score_and_price"
+    lang: "de-de"
   });
-
-  // Filter als Kette: Frühstück inklusive und Mindestbewertung.
-  const mindest = Math.round(zahlOder(KRITERIEN.mindestbewertung, 8) * 10);
-  const filter = ["mealplan=1", `review_score=${mindest}`];
-  if(KRITERIEN.freie_stornierung) filter.push("fc=2");
-
-  return "https://www.booking.com/searchresults.de.html?" + p.toString()
-    + "&nflt=" + encodeURIComponent(filter.join(";"));
+  return "https://www.booking.com/searchresults.de.html?" + p.toString();
 }
+
 
 function warnungenZeichnen(bst, vonIso, bisIso, besetzung){
   const meldungen = [];
