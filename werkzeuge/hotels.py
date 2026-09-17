@@ -439,6 +439,7 @@ def _punkte_vergeben(
     if not geeignete:
         return
 
+    min_bewertung = _zahl(kriterien.get("mindestbewertung"), 8.0)
     gewicht_entfernung = _zahl(kriterien.get("gewicht_entfernung"), 40.0)
     gewicht_preis = _zahl(kriterien.get("gewicht_preis"), 30.0)
     gewicht_bewertung = _zahl(kriterien.get("gewicht_bewertung"), 20.0)
@@ -461,9 +462,12 @@ def _punkte_vergeben(
         if t.hat_bewertung:
             gut = max(0.0, min((t.bewertung - 7.0) / 3.0, 1.0))
         else:
-            # Weder Gutes noch Schlechtes bekannt: die Hälfte der Punkte. Volle
-            # Punkte wären geschönt, keine wären eine Strafe für Neueröffnung.
-            gut = 0.5
+            # Unterstellt wird genau das Minimum, das gefordert ist, nicht mehr.
+            # "Die Hälfte der Punkte" klingt konservativ, ist es aber nicht: Die
+            # Skala beginnt bei 7,0, und reale Treffer liegen fast alle zwischen
+            # 8,0 und 8,7. Ein unbewertetes Haus hätte damit mehr Punkte
+            # bekommen als eines mit belegter 8,4 aus 688 Bewertungen.
+            gut = max(0.0, min((min_bewertung - 7.0) / 3.0, 1.0))
         parken = {"ok": 1.0, "pruefen": 0.5, "kritisch": 0.0}[t.park.status]
 
         t.punkte = round(
@@ -518,9 +522,10 @@ def uebersicht(treffer: list[Treffer], anzahl: int = 5) -> str:
     if any(not t.hat_bewertung for t in geeignete):
         zeilen.append(
             "Häuser ohne Bewertung sind nicht schlecht bewertet, sondern noch "
-            "unbewertet, oft neu eröffnet. Sie zählen bei der Bewertung mit der "
-            "halben Punktzahl und sind vor dem Buchen einen Blick auf die Fotos "
-            "wert."
+            "unbewertet, oft neu eröffnet. Bei den Punkten zählen sie so, als "
+            "erfüllten sie die Mindestbewertung genau, also schlechter als "
+            "jedes Haus mit belegter Bewertung darüber. Vor dem Buchen "
+            "einen Blick auf die Fotos wert."
         )
     return "\n".join(zeilen)
 

@@ -331,25 +331,41 @@ class FehlendeBewertung(unittest.TestCase):
         self.assertFalse(treffer[0].geeignet)
         self.assertIn("6.2", treffer[0].ausschluss)
 
-    def test_unbewertet_bekommt_die_halbe_bewertungspunktzahl(self):
-        """Weder geschönt noch bestraft: die Hälfte."""
+    def test_unbewertet_liegt_hinter_jeder_belegten_bewertung(self):
+        """Unterstellt wird das geforderte Minimum, nicht mehr.
+
+        Der erste Anlauf gab unbewerteten Häusern die halbe Punktzahl. Das
+        klingt konservativ, ist es aber nicht: Die Skala beginnt bei 7,0, und
+        echte Treffer liegen zwischen 8,0 und 8,7. Ein unbewertetes Haus hätte
+        damit mehr Bewertungspunkte bekommen als eines mit belegter 8,4.
+        """
         ohne = self._ohne_bewertung()
         ohne["id"] = 1
-        spitze = hotel("Spitzenbewertung", 53.5400, 8.5810, 300,
-                       bewertung=10.0, hid=2)
-        treffer = auswerten([ohne, spitze], BAUSTELLE, zimmer=1,
+        knapp = hotel("Knapp über der Schwelle", 53.5400, 8.5810, 300,
+                      bewertung=8.1, hid=2)
+        treffer = auswerten([ohne, knapp], BAUSTELLE, zimmer=1,
                             anzahl_naechte=4, kriterien=KRITERIEN)
         nach_id = {t.hotel_id: t for t in treffer}
-        # Gleiche Lage, gleicher Preis, gleicher Parkplatz. Der Unterschied in
-        # den Punkten ist damit genau die halbe Bewertungsgewichtung.
-        abstand = nach_id[2].punkte - nach_id[1].punkte
-        self.assertAlmostEqual(abstand, 10.0, delta=0.5)
+        # Gleiche Lage, gleicher Preis, gleicher Parkplatz: Es entscheidet
+        # allein die Bewertung, und die belegte 8,1 schlägt die unterstellte.
+        self.assertGreater(nach_id[2].punkte, nach_id[1].punkte)
+
+    def test_unbewertet_wird_nicht_auf_null_gesetzt(self):
+        """Keine Strafe fürs Neueröffnen: Näher und billiger zählt weiter."""
+        ohne = self._ohne_bewertung()
+        ohne["id"] = 1
+        weiter_und_teurer = hotel("Bewertet, aber weiter weg", 53.5700, 8.6200,
+                                  480, bewertung=8.5, hid=2)
+        treffer = auswerten([ohne, weiter_und_teurer], BAUSTELLE, zimmer=1,
+                            anzahl_naechte=4, kriterien=KRITERIEN)
+        self.assertEqual(treffer[0].hotel_id, 1)
 
     def test_hinweis_unter_der_tabelle_erklaert_die_luecke(self):
         treffer = auswerten([self._ohne_bewertung()], BAUSTELLE, zimmer=1,
                             anzahl_naechte=4, kriterien=KRITERIEN)
         text = uebersicht(treffer)
         self.assertIn("noch unbewertet", text)
+        self.assertIn("Mindestbewertung", text)
 
     def test_bewertetes_haus_bleibt_unberuehrt(self):
         treffer = auswerten([hotel("Bewertet", 53.5400, 8.5810, 300, bewertung=8.5)],
