@@ -39,6 +39,38 @@ DURCHSCHNITTSTEMPO_KMH = 40.0
 SPRINTERHOEHE_M = 2.60
 HOEHENGRENZE_PARKHAUS_M = 2.00
 
+# Welches Fahrzeug mitfährt, entscheidet der Einsatz und nicht die Person:
+# Wer den Sprinter rausfährt, wechselt. Diese Richtwerte stehen hinter der
+# Fahrzeugfrage bei der Suche.
+FAHRZEUGE = {
+    "pkw": (1.55, "PKW"),
+    "vito": (1.95, "Vito oder ähnlicher flacher Transporter"),
+    "sprinter": (2.35, "Sprinter ohne Hochdach"),
+    "hochdach": (2.60, "Sprinter mit Hochdach"),
+    "lkw": (3.00, "3,5-Tonner"),
+}
+
+
+def fahrzeughoehe(angabe: str) -> tuple[float, str]:
+    """Löst eine Fahrzeugangabe in Höhe und Bezeichnung auf.
+
+    Erlaubt sind die Schlüssel aus FAHRZEUGE oder eine Zahl in Metern.
+    """
+    schluessel = str(angabe).strip().lower().replace(",", ".")
+    if schluessel in FAHRZEUGE:
+        return FAHRZEUGE[schluessel]
+    try:
+        meter = float(schluessel)
+    except ValueError:
+        raise ValueError(
+            f"Fahrzeug '{angabe}' nicht verstanden. Möglich: "
+            + ", ".join(FAHRZEUGE)
+            + " oder eine Höhe in Metern."
+        ) from None
+    if not 1.0 <= meter <= 4.5:
+        raise ValueError(f"{meter} m ist keine plausible Fahrzeughöhe.")
+    return meter, "eigene Angabe"
+
 
 # --- Stammdaten ------------------------------------------------------------
 

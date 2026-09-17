@@ -89,10 +89,13 @@ select:focus,input:focus,textarea:focus{outline:2px solid var(--akzent);outline-
 .person input{margin:0;width:auto}
 .person.an{background:var(--akzent);border-color:var(--gedimmt);color:#2d2926}
 .person small{opacity:.75}
-button.tat{
+button.tat,a.tat{
   background:var(--gedimmt);color:#fff;border:0;border-radius:3px;
   padding:10px 16px;font:inherit;font-size:15px;cursor:pointer;
+  text-decoration:none;display:inline-block;line-height:1.2;
 }
+a.tat:hover{filter:brightness(1.15);color:#fff}
+a.tat:focus-visible{outline:2px solid var(--akzent);outline-offset:2px}
 button.tat:hover{filter:brightness(1.15)}
 button.leise{background:none;color:var(--gedimmt);border:1px solid var(--linie)}
 button.leise:hover{background:var(--grund);color:var(--text)}
@@ -164,6 +167,19 @@ footer{max-width:1100px;margin:0 auto;padding:0 16px 30px;font-size:13px;color:v
     </div>
     <label>Wer fährt</label>
     <div class="leute" id="leute"></div>
+    <div class="reihe" style="margin-top:14px">
+      <div>
+        <label for="fahrzeug">Womit fahrt ihr</label>
+        <select id="fahrzeug">
+          <option value="">nach Stammdaten der Leute</option>
+          <option value="pkw|1.55">Kein Sprinter, nur PKW</option>
+          <option value="vito|1.95">Vito oder flacher Transporter</option>
+          <option value="sprinter|2.35">Sprinter ohne Hochdach</option>
+          <option value="hochdach|2.60">Sprinter mit Hochdach</option>
+          <option value="lkw|3.00">3,5-Tonner</option>
+        </select>
+      </div>
+    </div>
     <p class="hinweis" id="lage"></p>
   </div>
 
@@ -173,13 +189,15 @@ footer{max-width:1100px;margin:0 auto;padding:0 16px 30px;font-size:13px;color:v
     <div class="knopfreihe">
       <button class="tat" data-kopie="auftragText">Auftrag kopieren</button>
       <button class="leise" data-kopie="befehlText">Befehl kopieren</button>
-      <button class="leise" id="zuBooking">Bei Booking öffnen</button>
+      <a class="tat" id="zuBooking" href="#" target="_blank" rel="noopener">Bei Booking öffnen</a>
     </div>
     <h3>Befehl für die Kommandozeile</h3>
     <pre class="block" id="befehlText"></pre>
     <p class="hinweis">Der Auftrag oben geht an Claude, der die Verfügbarkeit
       prüft. Der Booking-Link ist der Notnagel, wenn du selbst suchen willst:
-      Er trägt Ort, Zeitraum und Zimmerzahl, die Feinfilter setzt du dort.</p>
+      Er trägt Ort, Zeitraum und Zimmerzahl, die Feinfilter setzt du dort.
+      Öffnet er sich nicht, hier die Adresse zum Kopieren:</p>
+    <pre class="block" id="bookingUrl"></pre>
   </div>
 
   <div class="karte" id="warnungen" style="display:none">
@@ -475,8 +493,20 @@ function auftragZeichnen(){
   }
 
   const zimmer = besetzung.length || 1;
-  const hoehen = besetzung.map(m => zahlOder(m.fahrzeughoehe_m, SPRINTER));
-  const fahrzeug = hoehen.length ? Math.max.apply(null, hoehen) : SPRINTER;
+
+  // Angegeben schlägt hinterlegt: Wer den Sprinter rausfährt, wechselt.
+  const wahl = stelle("fahrzeug").value;
+  let fahrzeug, fahrzeugName;
+  if(wahl){
+    const [schluessel, meter] = wahl.split("|");
+    fahrzeug = zahlOder(meter, SPRINTER);
+    fahrzeugName = stelle("fahrzeug").selectedOptions[0].textContent.trim();
+  }else{
+    const hoehen = besetzung.map(m => zahlOder(m.fahrzeughoehe_m, SPRINTER));
+    fahrzeug = hoehen.length ? Math.max.apply(null, hoehen) : SPRINTER;
+    const hoechster = besetzung.find(m => zahlOder(m.fahrzeughoehe_m, SPRINTER) === fahrzeug);
+    fahrzeugName = (hoechster && hoechster.fahrzeug) || "nach Stammdaten";
+  }
   const namen = besetzung.length
     ? besetzung.map(m => `${m.kuerzel} (${m.name || m.kuerzel})`).join(", ")
     : "noch offen";
@@ -489,7 +519,7 @@ function auftragZeichnen(){
     `Nächte: ${n}`,
     `Zimmer: ${zimmer} Einzelzimmer mit Dusche und WC`,
     `Besetzung: ${namen}`,
-    `Fahrzeughöhe: ${fahrzeug.toFixed(2)} m`,
+    `Fahrzeug: ${fahrzeugName}, ${fahrzeug.toFixed(2)} m`,
     `Radius: ${radius} km`,
     limit ? `Preislimit: ${limit} EUR je Zimmer und Nacht` : `Preislimit: keines`,
     `Frühstück, Parkplatz, freie Stornierung, ab ${KRITERIEN.mindestbewertung || 8} Bewertung`,
@@ -520,7 +550,13 @@ function auftragZeichnen(){
   stelle("befehlText").textContent =
     `python3 werkzeuge/hotelsuche.py auftrag ${bst.kuerzel} ` +
     `${alsDatum(vonIso)} ${alsDatum(bisIso)}` +
-    (kuerzelListe ? ` --monteure ${kuerzelListe}` : ` --zimmer ${zimmer}`);
+    (kuerzelListe ? ` --monteure ${kuerzelListe}` : ` --zimmer ${zimmer}`) +
+    (wahl ? ` --fahrzeug ${wahl.split("|")[0]}` : "");
+
+  const ziel = bookingLink();
+  const knopf = stelle("zuBooking");
+  knopf.href = ziel || "#";
+  stelle("bookingUrl").textContent = ziel || "";
 
   stelle("ergebnis").style.display = "";
   warnungenZeichnen(bst, vonIso, bisIso, besetzung, fahrzeug);
@@ -935,12 +971,7 @@ document.querySelectorAll("[data-schliessen]").forEach(knopf => {
   });
 });
 
-stelle("zuBooking").addEventListener("click", () => {
-  const ziel = bookingLink();
-  if(ziel) window.open(ziel, "_blank", "noopener");
-});
-
-["bst","von","bis"].forEach(id =>
+["bst","von","bis","fahrzeug"].forEach(id =>
   stelle(id).addEventListener("change", auftragZeichnen));
 
 stelle("mFahrzeug").addEventListener("change", () => {

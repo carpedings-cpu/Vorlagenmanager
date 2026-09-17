@@ -41,11 +41,28 @@ def _auftrag_bauen(args: argparse.Namespace) -> dict:
     zimmer = args.zimmer or len(besetzung) or 1
 
     # Das höchste Fahrzeug bestimmt, ob ein Parkhaus überhaupt in Frage kommt.
-    hoehen = [
-        hotels._zahl(m.get("fahrzeughoehe_m"), hotels.SPRINTERHOEHE_M)
-        for m in besetzung
-    ]
-    fahrzeughoehe = max(hoehen) if hoehen else hotels.SPRINTERHOEHE_M
+    # Angegeben schlägt hinterlegt: Wer den Sprinter fährt, wechselt je Einsatz.
+    if args.fahrzeug:
+        fahrzeughoehe, fahrzeugname = hotels.fahrzeughoehe(args.fahrzeug)
+    else:
+        hoehen = [
+            hotels._zahl(m.get("fahrzeughoehe_m"), hotels.SPRINTERHOEHE_M)
+            for m in besetzung
+        ]
+        fahrzeughoehe = max(hoehen) if hoehen else hotels.SPRINTERHOEHE_M
+        hoechster = next(
+            (
+                m
+                for m in besetzung
+                if hotels._zahl(m.get("fahrzeughoehe_m"), hotels.SPRINTERHOEHE_M)
+                == fahrzeughoehe
+            ),
+            None,
+        )
+        fahrzeugname = (
+            (hoechster or {}).get("fahrzeug")
+            or f"aus den Stammdaten, {fahrzeughoehe:.2f} m"
+        )
 
     radius = hotels._zahl(
         baustelle.get("max_entfernung_km") or kriterien.get("max_entfernung_km"), 15.0
@@ -81,6 +98,7 @@ def _auftrag_bauen(args: argparse.Namespace) -> dict:
         ],
         "zimmer": zimmer,
         "fahrzeughoehe_m": fahrzeughoehe,
+        "fahrzeug": fahrzeugname,
         "suche": {
             "radius_km": radius,
             "mindestbewertung": hotels._zahl(kriterien.get("mindestbewertung"), 8.0),
@@ -132,7 +150,8 @@ def _auftrag_zeigen(auftrag: dict) -> str:
         + (", Frühstück" if s["fruehstueck"] else "")
         + (", freie Stornierung" if s["freie_stornierung"] else "")
         + (", Parkplatz" if s["parkplatz_pflicht"] else ""),
-        f"Fahrzeug:  bis {auftrag['fahrzeughoehe_m']:.2f} m Höhe",
+        f"Fahrzeug:  {auftrag.get('fahrzeug', '')}"
+        f" ({auftrag['fahrzeughoehe_m']:.2f} m)",
     ]
     if b["hinweis"]:
         zeilen.append(f"Hinweis:   {b['hinweis']}")
@@ -358,6 +377,11 @@ def main() -> int:
     p_auftrag.add_argument("bis", help="Abreise, TT.MM.JJJJ")
     p_auftrag.add_argument("--monteure", nargs="*", default=[], help="Kürzel")
     p_auftrag.add_argument("--zimmer", type=int, help="falls ohne Monteurliste")
+    p_auftrag.add_argument(
+        "--fahrzeug",
+        help="pkw, vito, sprinter, hochdach, lkw oder eine Höhe in Metern. "
+        "Ohne Angabe gilt das höchste Fahrzeug der mitfahrenden Leute.",
+    )
     p_auftrag.add_argument("--json", help="Auftrag zusätzlich als JSON ablegen")
     p_auftrag.set_defaults(funktion=befehl_auftrag)
 
