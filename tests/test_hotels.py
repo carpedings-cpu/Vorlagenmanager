@@ -560,3 +560,78 @@ monteure:
     name: Ina Ruseva
 """)
             self.assertEqual(len(lade_monteure()), 2)
+
+
+class HeimfahrtGegenHotel(unittest.TestCase):
+    """Bei Baustellen in Reichweite ist tägliches Heimfahren eine echte Option."""
+
+    KRIT = {"dieselpreis_je_liter": 2.39, "durchschnittstempo_kmh": 40}
+
+    def _rechnen(self, luftlinie, naechte, personen, preis, hoehe=1.55):
+        from hotels import heimfahrt_vergleich
+
+        return heimfahrt_vergleich(luftlinie, naechte, personen, preis,
+                                   hoehe, self.KRIT)
+
+    def test_nahe_baustelle_spricht_fuer_heimfahrt(self):
+        # Marburg, rund 89 km Strecke ab Fulda, 4 Nächte, 2 Mann
+        v = self._rechnen(68, 4, 2, 86.50)
+        self.assertGreater(v["ersparnis_heimfahrt"], 0)
+        self.assertGreater(v["mehr_fahrstunden"], 0)
+
+    def test_weite_baustelle_ist_nicht_zumutbar(self):
+        # 400 km Luftlinie: Rein rechnerisch kann Heimfahren günstiger bleiben,
+        # weil Sprit billiger ist als ein Zimmer. 13 Stunden Fahrt am Tag sind
+        # aber keine Option, und genau das muss die Rechnung sagen.
+        v = self._rechnen(400, 4, 2, 86.50)
+        self.assertFalse(v["zumutbar"])
+        self.assertGreater(v["fahrzeit_taeglich_h"], 3.0)
+
+    def test_nahe_baustelle_ist_zumutbar(self):
+        v = self._rechnen(68, 4, 2, 86.50)
+        self.assertTrue(v["zumutbar"])
+        self.assertLessEqual(v["fahrzeit_taeglich_h"], 3.0)
+
+    def test_taegliche_fahrzeit_gilt_je_mann_nicht_als_summe(self):
+        einer = self._rechnen(68, 4, 1, 90)
+        zwei = self._rechnen(68, 4, 2, 90)
+        self.assertEqual(einer["fahrzeit_taeglich_h"], zwei["fahrzeit_taeglich_h"])
+
+    def test_arbeitstage_sind_naechte_plus_eins(self):
+        self.assertEqual(self._rechnen(68, 4, 1, 90)["arbeitstage"], 5)
+        self.assertEqual(self._rechnen(68, 1, 1, 90)["arbeitstage"], 2)
+
+    def test_spesen_folgen_den_steuerlichen_pauschalen(self):
+        # 4 Nächte, 1 Person: zwei Teiltage à 14 plus drei volle à 28
+        v = self._rechnen(68, 4, 1, 90)
+        self.assertAlmostEqual(v["hotel"]["spesen"], 2 * 14 + 3 * 28, places=2)
+        # Heimfahrt: fünf Arbeitstage à 14
+        self.assertAlmostEqual(v["heimfahrt"]["spesen"], 5 * 14, places=2)
+
+    def test_hoeheres_fahrzeug_verbraucht_mehr(self):
+        klein = self._rechnen(68, 4, 2, 90, hoehe=1.55)
+        gross = self._rechnen(68, 4, 2, 90, hoehe=3.00)
+        self.assertGreater(gross["heimfahrt"]["sprit"], klein["heimfahrt"]["sprit"])
+
+    def test_gefahrene_kilometer_sind_hin_und_zurueck(self):
+        v = self._rechnen(100, 2, 1, 90)
+        einfach = v["strecke_km"]
+        self.assertAlmostEqual(v["hotel"]["km"], round(2 * einfach), delta=1)
+        self.assertAlmostEqual(v["heimfahrt"]["km"], round(2 * einfach * 3), delta=2)
+
+    def test_text_nennt_beide_richtungen(self):
+        from hotels import vergleich_text
+
+        nah = vergleich_text(self._rechnen(68, 4, 2, 86.50), 2)
+        self.assertIn("Heimfahren spart", nah)
+        fern = vergleich_text(self._rechnen(400, 4, 2, 86.50), 2)
+        self.assertIn("scheidet aus", fern)
+
+
+class PreisLeistungSichtbar(unittest.TestCase):
+    def test_tabelle_zeigt_die_punkte(self):
+        treffer = auswerten([hotel("Passt", 53.5400, 8.5810, 300)], BAUSTELLE,
+                            zimmer=1, anzahl_naechte=4, kriterien=KRITERIEN)
+        text = uebersicht(treffer)
+        self.assertIn("P/L", text)
+        self.assertIn("Preis-Leistungs-Verhältnis", text)

@@ -205,6 +205,24 @@ liegen dann im Browser; der Exportknopf dort liefert den Inhalt für
 `monteure.yaml`. Spricht sie von jemandem, den das Skript nicht kennt, ist
 vermutlich der Export noch nicht gelaufen.
 
+## Heimfahrt statt Hotel
+
+Liegt die Baustelle in Reichweite des Betriebssitzes, hängt die Auswertung von
+selbst eine Gegenrechnung an: Zimmer, Diesel und Verpflegungspauschale auf
+beiden Seiten, dazu die Fahrzeit. Die Grenze steht in `kriterien.yaml` unter
+`heimfahrt_pruefen_bis_km`.
+
+Zwei Dinge dabei nicht übersehen. Der reine Kostenvergleich sagt auch bei
+500 km noch "fahr heim", weil Diesel billiger ist als ein Zimmer - deshalb
+prüft die Rechnung die tägliche Fahrzeit je Mann gegen
+`fahrzeit_zumutbar_h` und sagt es, wenn das nicht mehr geht. Und die Fahrzeit
+ist ausgewiesen, aber nicht als Kosten eingerechnet: Ob sie als Arbeitszeit
+zählt, ist eine betriebliche Frage, keine Rechenregel. Wenn Diana danach
+fragt, nicht selbst entscheiden.
+
+Der Dieselpreis in `kriterien.yaml` ist ein Stichtagswert und schwankt stark.
+Kommt eine Rechnung auf den Cent an, vorher nachsehen, ob er noch stimmt.
+
 ## Cockpit
 
 Für den Klickweg gibt es eine erzeugte HTML-Oberfläche:

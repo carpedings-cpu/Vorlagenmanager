@@ -591,8 +591,8 @@ def uebersicht(treffer: list[Treffer], anzahl: int = 5) -> str:
         return _keine_treffer(treffer)
 
     zeilen = [
-        "| # | Hotel | Entfernung | EUR/Nacht | Bewertung | Parkplatz |",
-        "|---|---|---|---|---|---|",
+        "| # | Hotel | Entfernung | EUR/Nacht | Bewertung | P/L | Parkplatz |",
+        "|---|---|---|---|---|---|---|",
     ]
     for nr, t in enumerate(geeignete, 1):
         zeilen.append(
@@ -600,7 +600,7 @@ def uebersicht(treffer: list[Treffer], anzahl: int = 5) -> str:
             f"(ca. {t.fahrzeit_min} min) | {t.preis_pro_nacht:.2f} | "
             + (f"{t.bewertung:.1f} ({t.anzahl_bewertungen})" if t.hat_bewertung
                else "ohne Bewertung")
-            + " | "
+            + f" | {t.punkte:.0f} | "
             f"{t.park.zeichen} {t.park.hinweis} |"
         )
 
@@ -619,6 +619,11 @@ def uebersicht(treffer: list[Treffer], anzahl: int = 5) -> str:
     zeilen.append(
         "Die Durchfahrtshöhe steht in keiner Ausstattungsliste. Vor dem Buchen "
         "bei jedem Haus erfragen, auch bei ✅."
+    )
+    zeilen.append(
+        "P/L ist das Preis-Leistungs-Verhältnis von 0 bis 100, gewichtet aus "
+        "Nähe zur Baustelle, Preis, Bewertung und Parkplatz. Platz 1 hat davon "
+        "das beste."
     )
     return "\n".join(zeilen)
 
@@ -646,6 +651,153 @@ def kostenschaetzung(treffer: Treffer, zimmer: int, anzahl_naechte: int) -> str:
 
 
 # --- Buchungen festhalten --------------------------------------------------
+
+
+# --- Heimfahrt statt Hotel -------------------------------------------------
+
+# Verbrauch in Litern je 100 km. Richtwerte für Dieselfahrzeuge im
+# Montageeinsatz, also beladen und nicht auf Verbrauch gefahren.
+VERBRAUCH = {1.55: 6.5, 1.95: 8.5, 2.35: 10.5, 2.60: 11.0, 3.00: 13.0}
+
+# Verpflegungsmehraufwand im Inland, steuerfreie Pauschalen.
+SPESEN_VOLLER_TAG = 28.0
+SPESEN_TEILTAG = 14.0
+
+# Ab wann tägliches Heimfahren keine Option mehr ist. Reiner Kostenvergleich
+# sagt "fahr heim" auch bei 500 km, weil ein Hotelzimmer teurer ist als der
+# Sprit. Bei acht Stunden Montage passen aber nur zwei Stunden Fahrt in den
+# Zehn-Stunden-Rahmen des Arbeitszeitgesetzes.
+FAHRZEIT_ZUMUTBAR_H = 3.0
+
+# Die 40 km/h weiter oben gelten für den kurzen Weg vom Hotel zur Baustelle,
+# also Ortsdurchfahrten und Ampeln. Die Heimfahrt über hundert Kilometer läuft
+# überwiegend über Land und Autobahn.
+FERNTEMPO_KMH = 75.0
+
+
+def verbrauch_je_100km(fahrzeughoehe_m: float) -> float:
+    """Ordnet der Fahrzeughöhe einen Verbrauch zu, nächstliegende Klasse."""
+    passend = min(VERBRAUCH, key=lambda h: abs(h - fahrzeughoehe_m))
+    return VERBRAUCH[passend]
+
+
+def heimfahrt_vergleich(
+    entfernung_km: float,
+    anzahl_naechte: int,
+    personen: int,
+    preis_pro_nacht: float,
+    fahrzeughoehe_m: float = SPRINTERHOEHE_M,
+    kriterien: dict | None = None,
+    fahrzeuge: int = 1,
+) -> dict:
+    """Stellt Hotelaufenthalt und tägliche Heimfahrt gegenüber.
+
+    Gerechnet wird mit Strecke, nicht mit Luftlinie, und beide Seiten tragen
+    dieselben Posten: Kraftstoff, Verpflegungspauschale, Fahrzeit. Die Fahrzeit
+    wird nur ausgewiesen, nicht bewertet - ob sie als Arbeitszeit zählt, ist
+    eine betriebliche Frage und keine Rechenregel.
+    """
+    kriterien = kriterien or lade_kriterien()
+    dieselpreis = _zahl(kriterien.get("dieselpreis_je_liter"), 2.39)
+    tempo = _zahl(kriterien.get("ferntempo_kmh"), FERNTEMPO_KMH)
+
+    strecke = fahrstrecke_km(entfernung_km)
+    liter100 = verbrauch_je_100km(fahrzeughoehe_m)
+    arbeitstage = max(1, anzahl_naechte + 1)
+
+    # Hotel: einmal hin, einmal zurück.
+    hotel_km = 2 * strecke * fahrzeuge
+    hotel_sprit = hotel_km / 100 * liter100 * dieselpreis
+    hotel_zimmer = preis_pro_nacht * personen * anzahl_naechte
+    # Erster und letzter Tag zählen als Teiltag, die Tage dazwischen voll.
+    hotel_spesen = personen * (
+        2 * SPESEN_TEILTAG + max(0, anzahl_naechte - 1) * SPESEN_VOLLER_TAG
+    )
+    hotel_fahrstunden = 2 * strecke / tempo * fahrzeuge
+
+    # Heimfahrt: jeden Arbeitstag hin und zurück, keine Übernachtung.
+    heim_km = 2 * strecke * arbeitstage * fahrzeuge
+    heim_sprit = heim_km / 100 * liter100 * dieselpreis
+    heim_spesen = personen * arbeitstage * SPESEN_TEILTAG
+    heim_fahrstunden = 2 * strecke / tempo * arbeitstage * fahrzeuge
+
+    hotel_gesamt = hotel_zimmer + hotel_sprit + hotel_spesen
+    heim_gesamt = heim_sprit + heim_spesen
+
+    # Was ein einzelner Mann täglich fährt, nicht die Summe aller Fahrzeuge.
+    fahrzeit_taeglich = 2 * strecke / tempo
+    zumutbar = _zahl(
+        kriterien.get("fahrzeit_zumutbar_h"), FAHRZEIT_ZUMUTBAR_H
+    )
+
+    return {
+        "strecke_km": round(strecke, 1),
+        "arbeitstage": arbeitstage,
+        "fahrzeit_taeglich_h": round(fahrzeit_taeglich, 1),
+        "zumutbar": fahrzeit_taeglich <= zumutbar,
+        "zumutbar_grenze_h": zumutbar,
+        "tempo_kmh": tempo,
+        "dieselpreis": dieselpreis,
+        "verbrauch": liter100,
+        "hotel": {
+            "zimmer": round(hotel_zimmer, 2),
+            "sprit": round(hotel_sprit, 2),
+            "spesen": round(hotel_spesen, 2),
+            "gesamt": round(hotel_gesamt, 2),
+            "fahrstunden": round(hotel_fahrstunden, 1),
+            "km": round(hotel_km),
+        },
+        "heimfahrt": {
+            "sprit": round(heim_sprit, 2),
+            "spesen": round(heim_spesen, 2),
+            "gesamt": round(heim_gesamt, 2),
+            "fahrstunden": round(heim_fahrstunden, 1),
+            "km": round(heim_km),
+        },
+        "ersparnis_heimfahrt": round(hotel_gesamt - heim_gesamt, 2),
+        "mehr_fahrstunden": round(heim_fahrstunden - hotel_fahrstunden, 1),
+    }
+
+
+def vergleich_text(v: dict, personen: int) -> str:
+    """Stellt die Gegenüberstellung als Tabelle dar."""
+    h, f = v["hotel"], v["heimfahrt"]
+    zeilen = [
+        f"| Posten | Hotel | Täglich heim |",
+        "|---|---|---|",
+        f"| Zimmer | {h['zimmer']:.2f} EUR | – |",
+        f"| Diesel | {h['sprit']:.2f} EUR ({h['km']} km) "
+        f"| {f['sprit']:.2f} EUR ({f['km']} km) |",
+        f"| Verpflegungspauschale | {h['spesen']:.2f} EUR | {f['spesen']:.2f} EUR |",
+        f"| **Summe** | **{h['gesamt']:.2f} EUR** | **{f['gesamt']:.2f} EUR** |",
+        f"| Fahrzeit | {h['fahrstunden']:.1f} h | {f['fahrstunden']:.1f} h |",
+        "",
+    ]
+    if not v["zumutbar"]:
+        zeilen.append(
+            f"**Heimfahren scheidet aus**: {v['fahrzeit_taeglich_h']:.1f} Stunden "
+            f"Fahrt pro Mann und Tag, dazu die Montage. Über "
+            f"{v['zumutbar_grenze_h']:.0f} Stunden wird das nichts, auch wenn die "
+            f"Rechnung unten es günstiger aussehen lässt."
+        )
+    elif v["ersparnis_heimfahrt"] > 0:
+        zeilen.append(
+            f"Heimfahren spart {v['ersparnis_heimfahrt']:.2f} EUR, kostet aber "
+            f"{v['mehr_fahrstunden']:.1f} Stunden mehr Fahrzeit, also "
+            f"{v['fahrzeit_taeglich_h']:.1f} Stunden pro Mann und Tag."
+        )
+    else:
+        zeilen.append(
+            f"Das Hotel ist um {abs(v['ersparnis_heimfahrt']):.2f} EUR günstiger "
+            f"und spart {abs(v['mehr_fahrstunden']):.1f} Stunden Fahrzeit."
+        )
+    zeilen.append(
+        f"Gerechnet mit {v['dieselpreis']:.2f} EUR je Liter, {v['verbrauch']:.1f} l/100 km, "
+        f"{v['strecke_km']:.0f} km einfache Strecke, {v['tempo_kmh']:.0f} km/h im "
+        f"Schnitt und {v['arbeitstage']} Arbeitstagen. Die Fahrzeit ist nur "
+        "ausgewiesen, nicht als Kosten eingerechnet."
+    )
+    return "\n".join(zeilen)
 
 
 def lade_buchungen() -> list[dict]:

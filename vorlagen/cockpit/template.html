@@ -406,6 +406,16 @@ function text(wert){
     .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
     .replace(/"/g,"&quot;");
 }
+const UMWEGFAKTOR = 1.3;
+
+function luftlinieKm(lat1, lon1, lat2, lon2){
+  const bog = Math.PI / 180;
+  const dPhi = (lat2 - lat1) * bog, dLam = (lon2 - lon1) * bog;
+  const a = Math.sin(dPhi/2) ** 2
+    + Math.cos(lat1 * bog) * Math.cos(lat2 * bog) * Math.sin(dLam/2) ** 2;
+  return 6371 * 2 * Math.asin(Math.sqrt(a));
+}
+
 function baustelleNach(kuerzel){
   return BAUSTELLEN.find(b => b.kuerzel === kuerzel) || null;
 }
@@ -482,8 +492,26 @@ function auftragZeichnen(){
 
   const teile = [`${radius} km Radius`];
   teile.push(limit ? `max. ${limit} EUR je Zimmer und Nacht` : "kein Preislimit");
+  const sitzJetzt = KRITERIEN.betriebssitz || {};
+  if(sitzJetzt.lat && bst.koordinaten){
+    const weg = luftlinieKm(sitzJetzt.lat, sitzJetzt.lon,
+                            bst.koordinaten.lat, bst.koordinaten.lon) * UMWEGFAKTOR;
+    const grenze = zahlOder(KRITERIEN.heimfahrt_pruefen_bis_km, 150);
+    teile.push(weg <= grenze
+      ? `${weg.toFixed(0)} km ab ${sitzJetzt.ort || "Betriebssitz"}, Heimfahren wird gegengerechnet`
+      : `${weg.toFixed(0)} km ab ${sitzJetzt.ort || "Betriebssitz"}, zu weit zum Heimfahren`);
+  }
   if(bst.hinweis) teile.push(bst.hinweis);
   lage.textContent = teile.join(" · ");
+
+  // Entfernung zum Betriebssitz: Sie entscheidet, ob tägliches Heimfahren
+  // überhaupt eine Alternative ist.
+  const sitz = KRITERIEN.betriebssitz || {};
+  let heimweg = null;
+  if(sitz.lat && sitz.lon && bst.koordinaten){
+    heimweg = luftlinieKm(sitz.lat, sitz.lon, bst.koordinaten.lat, bst.koordinaten.lon)
+      * UMWEGFAKTOR;
+  }
 
   const n = naechte(vonIso, bisIso);
   if(!vonIso || !bisIso || n < 1){
@@ -522,6 +550,7 @@ function auftragZeichnen(){
     `Fahrzeug: ${fahrzeugName}, ${fahrzeug.toFixed(2)} m`,
     `Radius: ${radius} km`,
     limit ? `Preislimit: ${limit} EUR je Zimmer und Nacht` : `Preislimit: keines`,
+    heimweg ? `Heimweg: ${heimweg.toFixed(0)} km ab ${(KRITERIEN.betriebssitz || {}).ort || "Betriebssitz"}, einfache Strecke` : "",
     `Frühstück, Parkplatz, freie Stornierung, ab ${KRITERIEN.mindestbewertung || 8} Bewertung`,
   ];
   if(bst.hinweis) zeilen.push(`Hinweis Baustelle: ${bst.hinweis}`);
@@ -544,7 +573,8 @@ function auftragZeichnen(){
   zeilen.push("- Drei Vorschläge reichen, mit Entfernung zur Baustelle, Preis je Zimmer");
   zeilen.push("  und Nacht, Bewertung und Buchungslink.");
 
-  stelle("auftragText").textContent = zeilen.join("\n");
+  stelle("auftragText").textContent = zeilen.filter(z => z !== "").join("\n")
+    .replace(/\n(Bitte beachten:)/, "\n\n$1");
 
   const kuerzelListe = besetzung.map(m => m.kuerzel).join(" ");
   stelle("befehlText").textContent =

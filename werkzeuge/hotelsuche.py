@@ -67,6 +67,24 @@ def _auftrag_bauen(args: argparse.Namespace) -> dict:
     radius = hotels._zahl(
         baustelle.get("max_entfernung_km") or kriterien.get("max_entfernung_km"), 15.0
     )
+
+    # Entfernung zum Betriebssitz: Sie entscheidet, ob tägliches Heimfahren
+    # überhaupt eine Alternative ist.
+    sitz = kriterien.get("betriebssitz") or {}
+    koord = baustelle.get("koordinaten") or {}
+    heimweg_km = None
+    if sitz.get("lat") and sitz.get("lon") and koord.get("lat") and koord.get("lon"):
+        heimweg_km = round(
+            hotels.fahrstrecke_km(
+                hotels.luftlinie_km(
+                    hotels._zahl(sitz["lat"]),
+                    hotels._zahl(sitz["lon"]),
+                    hotels._zahl(koord["lat"]),
+                    hotels._zahl(koord["lon"]),
+                )
+            ),
+            1,
+        )
     direkt_ab = hotels._zahl(kriterien.get("direktanfrage_ab_naechten"), 5)
 
     return {
@@ -115,6 +133,8 @@ def _auftrag_bauen(args: argparse.Namespace) -> dict:
             "zimmerart": kriterien.get("zimmerart", "Einzelzimmer"),
             "eigenes_bad": bool(kriterien.get("eigenes_bad", True)),
         },
+        "heimweg_km": heimweg_km,
+        "betriebssitz": sitz.get("ort", ""),
         "direktanfrage_noetig": anzahl_naechte >= direkt_ab,
         "bekannt": hotels.bekannte_hotels(baustelle)[:3],
     }
@@ -158,6 +178,11 @@ def _auftrag_zeigen(auftrag: dict) -> str:
     for m in besetzung:
         if m["hinweis"]:
             zeilen.append(f"           {m['kuerzel']}: {m['hinweis']}")
+    if auftrag.get("heimweg_km"):
+        zeilen.append(
+            f"Heimweg:   {auftrag['heimweg_km']:.0f} km ab "
+            f"{auftrag.get('betriebssitz') or 'Betriebssitz'}, einfache Strecke"
+        )
     if auftrag["direktanfrage_noetig"]:
         zeilen.append(
             f"Direktanfrage: ja – {z['naechte']} Nächte, "
@@ -228,6 +253,8 @@ def befehl_auswerten(args: argparse.Namespace) -> int:
                 f"{auftrag['suche']['fruehstueck_ab']} Uhr."
             )
 
+        _heimfahrt_zeigen(auftrag, bester.preis_pro_nacht)
+
     if args.ids:
         print()
         print("Hotel-IDs: " + ", ".join(str(t.hotel_id) for t in geeignete[: args.anzahl]))
@@ -292,6 +319,32 @@ def befehl_anfrage(args: argparse.Namespace) -> int:
     else:
         print(text)
     return 0
+
+
+def _heimfahrt_zeigen(auftrag: dict, preis_pro_nacht: float) -> None:
+    """Rechnet die Heimfahrt gegen, sobald die Baustelle in Reichweite liegt."""
+    heimweg = hotels._zahl(auftrag.get("heimweg_km"), 0)
+    if not heimweg:
+        return
+    kriterien = hotels.lade_kriterien()
+    grenze = hotels._zahl(kriterien.get("heimfahrt_pruefen_bis_km"), 150)
+    if heimweg > grenze:
+        return
+
+    vergleich = hotels.heimfahrt_vergleich(
+        # Der Heimweg steht schon als Strecke im Auftrag, nicht als Luftlinie
+        entfernung_km=heimweg / hotels.UMWEGFAKTOR,
+        anzahl_naechte=auftrag["zeitraum"]["naechte"],
+        personen=auftrag["zimmer"],
+        preis_pro_nacht=preis_pro_nacht,
+        fahrzeughoehe_m=hotels._zahl(
+            auftrag.get("fahrzeughoehe_m"), hotels.SPRINTERHOEHE_M
+        ),
+        kriterien=kriterien,
+    )
+    print()
+    print(f"Heimfahren statt übernachten ({heimweg:.0f} km einfach):")
+    print(hotels.vergleich_text(vergleich, auftrag["zimmer"]))
 
 
 def befehl_buchen(args: argparse.Namespace) -> int:

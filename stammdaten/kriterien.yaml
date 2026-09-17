@@ -6,7 +6,7 @@
 max_entfernung_km: 15          # Luftlinie zur Baustelle
 mindestbewertung: 8.0          # Booking-Skala; 8.0 heißt "sehr gut"
 mindestanzahl_bewertungen: 50  # gegen Ausreißer bei neuen Häusern
-max_preis_pro_nacht: 120       # EUR je Einzelzimmer inkl. Frühstück, 0 = kein Limit
+max_preis_pro_nacht: 100       # EUR je Einzelzimmer inkl. Frühstück, 0 = kein Limit
 parkplatz_pflicht: true        # ohne brauchbaren Stellplatz kein Vorschlag
 
 # --- Gewichte der Rangfolge, Summe 100 -------------------------------------
@@ -27,6 +27,27 @@ wlan: true
 # Ab dieser Aufenthaltsdauer lohnt die Anfrage beim Hotel: Monteur- und
 # Wochenpauschalen liegen regelmäßig unter dem Portalpreis.
 direktanfrage_ab_naechten: 5
+
+# --- Heimfahrt statt Hotel --------------------------------------------------
+# Bei Baustellen in Reichweite kann tägliches Heimfahren günstiger sein als
+# das Hotel. Gerechnet wird ab dem Betriebssitz.
+betriebssitz:
+  ort: Fulda
+  lat: 50.5515
+  lon: 9.6762
+
+# Stand 16.09.2026, Tagesdurchschnitt Deutschland. Schwankt stark, zuletzt
+# zwischen 1,96 im Jahresmittel und 2,39 in der laufenden Woche.
+dieselpreis_je_liter: 2.39
+
+# Bis zu dieser Entfernung wird die Heimfahrt überhaupt gegengerechnet.
+heimfahrt_pruefen_bis_km: 150
+# Und so viel Fahrt am Tag ist einem Mann zuzumuten, hin und zurück zusammen.
+# Bei acht Stunden Montage passt mehr nicht in den Zehn-Stunden-Rahmen.
+fahrzeit_zumutbar_h: 3.0
+# Schnitt auf der Heimfahrt. Die 40 km/h der Hotelsuche gelten für den kurzen
+# Weg zur Baustelle, nicht für hundert Kilometer über Land und Autobahn.
+ferntempo_kmh: 75
 
 # --- Absender der Direktanfrage --------------------------------------------
 # Gehört in die eigene Kopie im Datenordner, nicht ins Repo.
