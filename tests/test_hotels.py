@@ -2,8 +2,8 @@
 
 Abgesichert ist, was still falsch sein kann: eine Entfernung, die stimmt,
 aber zum falschen Punkt gerechnet wird, ein Parkhaus, das als Stellplatz
-durchgeht, ein Nachtpreis, der Zimmer und Nächte verwechselt. Ein Monteur
-steht dann vor einem Hotel, in das sein Sprinter nicht passt.
+durchgeht, ein Nachtpreis, der Zimmer und Nächte verwechselt. Am Ende steht
+ein Mann abends vor dem falschen Haus.
 
     python3 -m unittest discover tests
 """
@@ -17,8 +17,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "werkzeuge"))
 
 from hotels import (  # noqa: E402
+    Treffer,
     auswerten,
     beurteile_parkplatz,
+    einsatzkosten,
+    kostentabelle,
     finde_baustelle,
     finde_monteure,
     fahrzeit_minuten,
@@ -215,8 +218,8 @@ class Stammdaten(unittest.TestCase):
         {"kuerzel": "BERN", "kurzname": "Bernhard Klinik", "ort": "Bernkastel"},
     ]
     MONTEURE = [
-        {"kuerzel": "MK", "name": "Max Mustermann", "fahrzeughoehe_m": 2.60},
-        {"kuerzel": "TS", "name": "Thomas Schmitt", "fahrzeughoehe_m": 1.95},
+        {"kuerzel": "MK", "name": "Max Mustermann", "fahrzeug": "Sprinter"},
+        {"kuerzel": "TS", "name": "Thomas Schmitt", "fahrzeug": "PKW"},
     ]
 
     def test_kuerzel_findet_die_baustelle(self):
@@ -389,7 +392,6 @@ class PauschaleNurBeiLangenAufenthalten(unittest.TestCase):
             "naechte": str(naechte_zahl),
             "zimmer": "3",
             "fahrzeuge": "3",
-            "fahrzeughoehe": "2,35",
             "fruehstueck_ab": "06:00",
             "pauschale": "ja" if naechte_zahl >= 5 else "",
             "hinweis": "",
@@ -412,7 +414,7 @@ class PauschaleNurBeiLangenAufenthalten(unittest.TestCase):
         for anzahl in (4, 8):
             text = self._anfrage(anzahl)
             self.assertIn("Frühstück serviert", text)
-            self.assertIn("Durchfahrt", text)
+            self.assertIn("Parkmöglichkeit", text)
             self.assertIn("Stornierung", text)
 
 
@@ -549,3 +551,64 @@ class PreisLeistungSichtbar(unittest.TestCase):
         text = uebersicht(treffer)
         self.assertIn("P/L", text)
         self.assertIn("Preis-Leistungs-Verhältnis", text)
+
+
+class EinsatzkostenStattNurZimmerpreis(unittest.TestCase):
+    """Nähe kostet Zimmerpreis, Ferne kostet Sprit. Nur zusammen stimmt es.
+
+    Der Fall aus Karlstadt: Platz 1 lag 13,9 km entfernt und kostete 95 EUR,
+    Platz 3 lag 18,8 km entfernt und kostete 77 EUR. Die Rangfolge gewichtet
+    Nähe und Preis getrennt und stellte deshalb das teurere Haus nach vorn,
+    obwohl es über drei Nächte hundert Euro mehr kostet.
+    """
+
+    KRITERIEN = {"dieselpreis_je_liter": 2.39, "verbrauch_je_100km": 8.0}
+
+    def _treffer(self, name, entfernung, preis):
+        return Treffer(
+            name=name,
+            hotel_id=0,
+            adresse="",
+            plz="",
+            ort="",
+            bewertung=8.4,
+            anzahl_bewertungen=100,
+            sterne=3,
+            gesamtpreis=preis * 6,
+            preis_pro_nacht=preis,
+            entfernung_km=entfernung,
+            fahrzeit_min=fahrzeit_minuten(entfernung),
+            park=beurteile_parkplatz(["Privatparkplatz"]),
+            url="",
+        )
+
+    def test_der_naehere_ist_nicht_automatisch_der_guenstigere(self):
+        nah = self._treffer("Nah und teuer", 13.9, 95.0)
+        fern = self._treffer("Fern und billig", 18.8, 77.0)
+
+        k_nah = einsatzkosten(nah, 2, 3, self.KRITERIEN)
+        k_fern = einsatzkosten(fern, 2, 3, self.KRITERIEN)
+
+        self.assertLess(k_fern["gesamt"], k_nah["gesamt"])
+        # Der Zimmerunterschied ist 108 EUR, der Spritunterschied liegt weit
+        # darunter. Genau das macht die getrennte Gewichtung unsichtbar.
+        self.assertLess(k_fern["sprit"] - k_nah["sprit"], 20.0)
+
+    def test_anfahrt_zaehlt_je_nacht_hin_und_zurueck(self):
+        t = self._treffer("Zehn Kilometer", 10.0, 80.0)
+        k = einsatzkosten(t, 1, 4, self.KRITERIEN)
+        # 10 km Luftlinie, Umwegfaktor 1.3, zweimal je Nacht, vier Nächte.
+        self.assertEqual(k["km"], round(2 * 13.0 * 4))
+
+    def test_tabelle_nennt_den_guenstigeren_beim_namen(self):
+        nah = self._treffer("Nah und teuer", 13.9, 95.0)
+        fern = self._treffer("Fern und billig", 18.8, 77.0)
+        text = kostentabelle([nah, fern], 2, 3, self.KRITERIEN)
+        self.assertIn("Fern und billig", text)
+        self.assertIn("günstiger als Platz 1", text)
+
+    def test_ohne_hinweis_wenn_platz_eins_auch_unterm_strich_vorn_liegt(self):
+        nah = self._treffer("Nah und billig", 5.0, 70.0)
+        fern = self._treffer("Fern und teuer", 19.0, 99.0)
+        text = kostentabelle([nah, fern], 2, 3, self.KRITERIEN)
+        self.assertNotIn("günstiger als Platz 1", text)

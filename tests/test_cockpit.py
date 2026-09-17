@@ -39,8 +39,7 @@ MONTEURE = """
 monteure:
   - kuerzel: MS
     name: Milenko Stanic
-    fahrzeug: Sprinter ohne Hochdach
-    fahrzeughoehe_m: 2.35
+    fahrzeug: Sprinter
   - kuerzel: ZI
     name: Diana Ziegler
     buero: true

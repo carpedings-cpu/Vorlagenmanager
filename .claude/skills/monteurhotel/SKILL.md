@@ -42,7 +42,7 @@ Baustelle über Kürzel, Projektnummer oder Kurzname. Datum als TT.MM.JJJJ.
 Kalenderwochen vorher umrechnen und das Ergebnis mitnennen, damit ein
 Missverständnis auffällt, bevor gesucht wird.
 
-Die Ausgabe zeigt Zeitraum, Zimmeranzahl, Radius, Fahrzeughöhe und frühere
+Die Ausgabe zeigt Zeitraum, Zimmeranzahl, Radius und frühere
 Buchungen an dieser Baustelle. Gibt es die Baustelle noch nicht, erst anlegen
 (siehe unten), nicht mit einer ungefähren Adresse weitersuchen.
 
@@ -89,6 +89,13 @@ python3 werkzeuge/hotelsuche.py auswerten <auftrag.json> <treffer.json> --ids
 Liefert die Rangfolge aus Entfernung, Preis, Bewertung und Parkplatz, dazu
 die Aussortierten mit Grund. Die Tabelle nicht neu erfinden, sondern
 übernehmen: Die Zahlen darin sind gerechnet, nicht geschätzt.
+
+Darunter steht, was der Einsatz je Vorschlag wirklich kostet, Zimmer plus
+Anfahrt. Platz 1 der Rangfolge ist nicht immer die günstigste Summe: Nähe und
+Preis gehen getrennt in die Punkte ein, und zwanzig Kilometer mehr kosten über
+drei Nächte weniger Sprit, als ein teureres Haus an Zimmerpreis frisst. Liegt
+ein hinterer Platz unterm Strich vorn, sagt die Ausgabe das, und du sagst es
+Diana auch, statt stumpf Platz 1 zu empfehlen.
 
 ### 4. Offene Punkte klären
 
@@ -209,10 +216,10 @@ python3 werkzeuge/cockpit.py
 ```
 
 Sie landet im Datenordner unter `hotels/cockpit.html` und trägt die Stammdaten
-fest eingebaut. **Nach jeder Änderung an Baustellen, Monteuren, Buchungen oder
-Buchungen neu erzeugen**, sonst zeigt sie einen alten Stand. Kommt Diana mit einem
+fest eingebaut. **Nach jeder Änderung an Baustellen, Monteuren oder Buchungen
+neu erzeugen**, sonst zeigt sie einen alten Stand. Kommt Diana mit einem
 Auftragstext aus dem Cockpit, ist das derselbe Ablauf wie oben ab Schritt 2:
-Der Text enthält Koordinaten, Radius, Zimmerzahl und Fahrzeughöhe schon fertig.
+Der Text enthält Koordinaten, Radius und Zimmerzahl schon fertig.
 
 Trägt sie im Cockpit Buchungen oder Monteure ein, liegen die zunächst nur im
 Browser. Die Exportknöpfe schreiben die YAML-Dateien, die in den Datenordner

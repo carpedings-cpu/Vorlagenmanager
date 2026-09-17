@@ -12,5 +12,5 @@ braucht deshalb keine `felder.yaml`, die Platzhalter kommen direkt aus dem
 Auftrag.
 
 Sinn der Sache: Ab etwa fünf Nächten liegen Monteur- und Wochenpauschalen
-regelmäßig unter dem Portalpreis, und die drei Fragen, an denen eine Buchung
-scheitert, stehen in keinem Portal: Frühstückszeit, Durchfahrtshöhe, Storno.
+regelmäßig unter dem Portalpreis, und die beiden Fragen, an denen eine Buchung
+scheitert, stehen in keinem Portal: Frühstückszeit und Storno.

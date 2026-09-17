@@ -111,7 +111,7 @@ Das Ergebnis ist **eine** HTML-Datei im Datenordner unter `hotels/cockpit.html`,
 die per Doppelklick aufgeht und auch aus SharePoint heraus läuft. Baustelle aus
 dem Dropdown, Monteure per Häkchen, Zeitraum, fertig: Daraus entsteht der
 Auftragstext für Claude, der passende Kommandozeilenaufruf und als Notnagel ein
-Booking-Link. Dazu Belegungsplan, Buchungshistorie und das Höhenverzeichnis.
+Booking-Link. Dazu der Belegungsplan und die Buchungshistorie.
 
 Die Stammdaten stehen in der Datei drin, sie werden nicht nachgeladen. Nach
 jeder Änderung an Baustellen oder Monteuren also neu erzeugen. Was die Seite

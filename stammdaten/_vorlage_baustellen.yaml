@@ -31,4 +31,4 @@ baustellen:
       lat: 52.5200
       lon: 13.4050
     max_entfernung_km: 8              # Stadt, kurze Wege, aber teuer
-    hinweis: "Sprinter-Zufahrt nur über Hinterhof, Höhe 2,80 m"
+    hinweis: "Zufahrt nur über den Hinterhof"

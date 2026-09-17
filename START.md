@@ -7,19 +7,19 @@ ist der volle Funktionsumfang und braucht einmal zehn Minuten am Rechner.
 
 Funktioniert ohne Installation, auf jedem Gerät.
 
-1. Die Datei `cockpit.html` aus dem Chat in die Dateien-App speichern, am
-   besten in einen Ordner, den du wiederfindest.
-2. Antippen. Sie öffnet sich im Browser, alle Baustellen und Monteure sind drin.
-3. Baustelle wählen, Leute anhaken, Zeitraum eintragen.
-4. **Auftrag kopieren** drücken.
-5. In einen Chat mit Claude einfügen und abschicken.
+1. Das veröffentlichte Cockpit im Browser öffnen und als Lesezeichen ablegen.
+   Eine heruntergeladene `cockpit.html` tut es auf dem iPad nicht: Die
+   Schnellvorschau führt kein JavaScript aus, die Seite bleibt leer.
+2. Baustelle wählen, Leute anhaken, Zeitraum eintragen.
+3. **Auftrag kopieren** drücken.
+4. In einen Chat mit Claude einfügen und abschicken.
 
 Der Auftragstext trägt alles, was für die Suche gebraucht wird: Koordinaten,
-Radius, Preislimit, Fahrzeughöhe, Zimmerzahl und die beiden Regeln, an denen
-sonst eine Buchung scheitert. Er funktioniert deshalb auch in einem frischen
-Chat, der dieses Repo gar nicht kennt.
+Radius, Preislimit, Zimmerzahl und die Regeln, an denen sonst eine Buchung
+scheitert. Er funktioniert deshalb auch in einem frischen Chat, der dieses
+Repo gar nicht kennt.
 
-Was auf diesem Weg fehlt: Buchungen und Höhen, die du im Cockpit einträgst,
+Was auf diesem Weg fehlt: Buchungen und Monteure, die du im Cockpit einträgst,
 bleiben im Browser des Geräts. Sie wandern nicht von selbst in den Datenordner
 zurück. Für ein paar Einträge reicht der Exportknopf, auf Dauer lohnt Weg 2.
 
@@ -35,14 +35,13 @@ pip install -r requirements.txt
 python3 werkzeuge/einrichten.py ~/Desktop/Vorlagenmanager-Daten
 ```
 
-Danach die drei Dateien aus dem Chat nach
+Danach die beiden Dateien aus dem Chat nach
 `~/Desktop/Vorlagenmanager-Daten/hotels/` legen:
 
 | Datei | Inhalt |
 |---|---|
-| `baustellen.yaml` | die 15 Baustellen |
-| `monteure.yaml` | MS, HN, KH und du |
-| `hoehen.yaml` | die fünf geprüften Durchfahrtshöhen |
+| `baustellen.yaml` | die 16 Baustellen |
+| `monteure.yaml` | die zehn Monteure und du |
 
 Dann einmal:
 
@@ -58,11 +57,11 @@ Ab jetzt reicht in Claude Code, geöffnet auf diesem Repo, ein Satz:
 > Hotel für GAZ, 28.09. bis 02.10., MS HN KH
 
 Der Skill macht den Rest: Stammdaten auflösen, suchen, Entfernungen rechnen,
-Höhen erfragen, drei Vorschläge zeigen. Nach der Buchung festhalten:
+drei Vorschläge zeigen. Nach der Buchung festhalten:
 
 ```bash
 python3 werkzeuge/hotelsuche.py buchen <auftrag.json> --hotel "<Name>" \
-    --preis <EUR/Nacht> --fazit "Durchfahrt 3,20 m, Frühstück ab 6:00"
+    --preis <EUR/Nacht> --fazit "Frühstück ab 6:00, Parkplatz reicht"
 ```
 
 ## Wenn sich etwas ändert
@@ -75,5 +74,5 @@ den alten Stand, ohne das zu merken.
 
 Ohne Zugang zu den Hotelportalen keine Verfügbarkeit. Das Cockpit stellt die
 Anfrage zusammen, die Suche selbst läuft über Claude. Der Booking-Link in der
-Suchmaske ist der Notnagel: Er trägt Ort, Zeitraum und Zimmerzahl, die
-Feinfilter setzt du dort selbst.
+Suchmaske trägt nur Ort und Zeitraum; Personenzahl, Zimmer und Filter setzt
+Booking nicht aus einem Link, das musst du dort selbst eingeben.

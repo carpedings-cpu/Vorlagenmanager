@@ -5,7 +5,7 @@ Claude. Dieses Modul macht das Drumherum, das eine Portalsuche nicht kann:
 
 * Baustellen und Monteure aus den Stammdaten holen
 * Entfernung Hotel–Baustelle rechnen
-* aus der Ausstattungsliste ableiten, ob ein Sprinter dort parken kann
+* aus der Ausstattungsliste ableiten, ob ein eigener Stellplatz da ist
 * die Treffer nach festen Kriterien filtern und in eine Rangfolge bringen
 
 Programm und Daten sind getrennt wie im übrigen Vorlagenmanager: Die
@@ -211,8 +211,7 @@ def fahrzeit_minuten(luftlinie: float) -> int:
 # --- Parkplatz -------------------------------------------------------------
 
 # Was in der Ausstattungsliste für einen eigenen Stellplatz spricht und was
-# dagegen. Über die Durchfahrtshöhe sagt keine dieser Angaben etwas, die ist
-# beim Haus zu erfragen.
+# dagegen. Ob das Fahrzeug dort auch hineinpasst, klärt sich beim Haus.
 PARKEN_EIGEN = (
     "privatparkplatz",
     "parken vor ort",
@@ -504,10 +503,6 @@ def uebersicht(treffer: list[Treffer], anzahl: int = 5) -> str:
         f"(Faktor {UMWEGFAKTOR} auf die Strecke, {DURCHSCHNITTSTEMPO_KMH:.0f} km/h)."
     )
     zeilen.append(
-        "Die Durchfahrtshöhe steht in keiner Ausstattungsliste. Vor dem Buchen "
-        "bei jedem Haus erfragen, auch bei ✅."
-    )
-    zeilen.append(
         "P/L ist das Preis-Leistungs-Verhältnis von 0 bis 100, gewichtet aus "
         "Nähe zur Baustelle, Preis, Bewertung und Parkplatz. Platz 1 hat davon "
         "das beste."
@@ -535,6 +530,77 @@ def kostenschaetzung(treffer: Treffer, zimmer: int, anzahl_naechte: int) -> str:
         f"{zimmer} Zimmer × {anzahl_naechte} Nächte × "
         f"{treffer.preis_pro_nacht:.2f} EUR = {gesamt:.2f} EUR"
     )
+
+
+def einsatzkosten(
+    treffer: Treffer,
+    zimmer: int,
+    anzahl_naechte: int,
+    kriterien: dict | None = None,
+) -> dict:
+    """Zimmer plus Diesel für die täglichen Wege zwischen Hotel und Baustelle.
+
+    Ohne diesen zweiten Posten vergleicht man Äpfel mit Birnen: Ein Haus fünf
+    Kilometer weiter draußen kostet über eine Woche keine zwanzig Euro mehr
+    Sprit, kann beim Zimmerpreis aber hundert Euro billiger sein. Die
+    Rangfolge gewichtet Nähe und Preis getrennt und sieht das nicht.
+    """
+    kriterien = kriterien or lade_kriterien()
+    dieselpreis = _zahl(kriterien.get("dieselpreis_je_liter"), 2.39)
+    liter100 = _zahl(kriterien.get("verbrauch_je_100km"), VERBRAUCH_JE_100KM)
+
+    zimmerkosten = treffer.preis_pro_nacht * zimmer * anzahl_naechte
+    # Je Nacht einmal hin und einmal zurück, mit einem Fahrzeug gerechnet wie
+    # beim Heimfahrtvergleich.
+    km = 2 * fahrstrecke_km(treffer.entfernung_km) * anzahl_naechte
+    sprit = km / 100 * liter100 * dieselpreis
+
+    return {
+        "zimmer": round(zimmerkosten, 2),
+        "sprit": round(sprit, 2),
+        "km": round(km),
+        "gesamt": round(zimmerkosten + sprit, 2),
+    }
+
+
+def kostentabelle(
+    treffer: list[Treffer],
+    zimmer: int,
+    anzahl_naechte: int,
+    kriterien: dict | None = None,
+) -> str:
+    """Stellt die Vorschläge mit Zimmer, Anfahrt und Summe nebeneinander."""
+    kriterien = kriterien or lade_kriterien()
+    posten = [
+        (t, einsatzkosten(t, zimmer, anzahl_naechte, kriterien)) for t in treffer
+    ]
+    if not posten:
+        return ""
+
+    zeilen = [
+        "| Hotel | Zimmer | Anfahrt | Summe |",
+        "|---|---|---|---|",
+    ]
+    for t, k in posten:
+        zeilen.append(
+            f"| {t.name} | {k['zimmer']:.2f} EUR | "
+            f"{k['sprit']:.2f} EUR ({k['km']} km) | **{k['gesamt']:.2f} EUR** |"
+        )
+
+    guenstigst = min(posten, key=lambda p: p[1]["gesamt"])
+    if guenstigst[0] is not posten[0][0]:
+        unterschied = posten[0][1]["gesamt"] - guenstigst[1]["gesamt"]
+        zeilen.append("")
+        zeilen.append(
+            f"Unterm Strich ist {guenstigst[0].name} {unterschied:.2f} EUR "
+            f"günstiger als Platz 1, trotz der längeren Anfahrt."
+        )
+    zeilen.append("")
+    zeilen.append(
+        f"Zimmer für {zimmer} × {anzahl_naechte} Nächte, Anfahrt je Nacht einmal "
+        "hin und zurück mit einem Fahrzeug."
+    )
+    return "\n".join(zeilen)
 
 
 # --- Buchungen festhalten --------------------------------------------------

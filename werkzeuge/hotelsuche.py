@@ -205,26 +205,29 @@ def befehl_auswerten(args: argparse.Namespace) -> int:
 
     geeignete = [t for t in treffer if t.geeignet]
     if geeignete:
-        bester = geeignete[0]
         print()
+        print("Was der Einsatz kostet:")
         print(
-            "Kosten Platz 1: "
-            + hotels.kostenschaetzung(
-                bester, auftrag["zimmer"], auftrag["zeitraum"]["naechte"]
+            hotels.kostentabelle(
+                geeignete[: args.anzahl],
+                auftrag["zimmer"],
+                auftrag["zeitraum"]["naechte"],
             )
         )
-        vorschlaege = geeignete[: args.anzahl]
-        print(
-            "Vor dem Buchen klären: Durchfahrtshöhe bei "
-            + ", ".join(t.name for t in vorschlaege)
-        )
+        print()
         if auftrag["suche"].get("fruehstueck_ab"):
             print(
-                f"Ebenfalls klären: Frühstück ab "
+                f"Vor dem Buchen klären: Frühstück ab "
                 f"{auftrag['suche']['fruehstueck_ab']} Uhr."
             )
 
-        _heimfahrt_zeigen(auftrag, bester.preis_pro_nacht)
+        # Gegen die Heimfahrt gerechnet wird der unterm Strich günstigste
+        # Vorschlag, nicht Platz 1. Sonst sieht die Heimfahrt besser aus, als
+        # sie ist.
+        guenstigster = min(
+            geeignete[: args.anzahl], key=lambda x: x.preis_pro_nacht
+        )
+        _heimfahrt_zeigen(auftrag, guenstigster.preis_pro_nacht)
 
     if args.ids:
         print()
@@ -236,9 +239,9 @@ def befehl_anfrage(args: argparse.Namespace) -> int:
     """Füllt den Mailtext für die Direktanfrage beim Hotel.
 
     Lohnt sich ab etwa fünf Nächten: Wochen- und Monteurpauschalen liegen
-    regelmäßig unter dem Portalpreis. Die drei Fragen, an denen eine Buchung
-    scheitert - Frühstückszeit, Durchfahrtshöhe, Storno - stehen ohnehin in
-    keinem Portal und sind hier gleich mit drin.
+    regelmäßig unter dem Portalpreis. Die beiden Fragen, an denen eine Buchung
+    scheitert - Frühstückszeit und Storno - stehen ohnehin in keinem Portal und
+    sind hier gleich mit drin.
     """
     auftrag = json.loads(Path(args.auftrag).read_text(encoding="utf-8"))
     kriterien = hotels.lade_kriterien()

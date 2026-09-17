@@ -10,7 +10,7 @@ Seite soll ohne Server laufen, per Doppelklick und aus SharePoint heraus. Nach
 jeder Änderung an Baustellen oder Monteuren neu erzeugen.
 
 Was die Seite kann und was nicht: Sie stellt den Suchauftrag zusammen, führt
-den Belegungsplan und das Höhenverzeichnis. Die Verfügbarkeit fragt sie nicht
+den Belegungsplan und die Buchungshistorie. Die Verfügbarkeit fragt sie nicht
 ab, das kann kein Browser ohne Zugang zu den Hotelportalen. Dafür erzeugt sie
 den Auftragstext, der an Claude geht, und als Notnagel einen Booking-Link.
 """
