@@ -64,7 +64,6 @@ def _monteure() -> list[dict]:
             "kuerzel": m.get("kuerzel", ""),
             "name": m.get("name", ""),
             "fahrzeug": m.get("fahrzeug", ""),
-            "fahrzeughoehe_m": m.get("fahrzeughoehe_m"),
             # Wer im Büro sitzt, taucht nicht in der Besetzungsauswahl auf,
             # bleibt aber in der Stammdatenübersicht sichtbar.
             "buero": bool(m.get("buero", False)),
@@ -72,12 +71,6 @@ def _monteure() -> list[dict]:
         }
         for m in hotels.lade_monteure()
     ]
-
-
-def _hoehen() -> dict:
-    return {
-        str(hotel_id): eintrag for hotel_id, eintrag in hotels.lade_hoehen().items()
-    }
 
 
 def _ohne_rahmen(text: str) -> str:
@@ -103,7 +96,6 @@ def erzeuge(ziel: Path | None = None, artifact: bool = False) -> Path:
         "BAUSTELLEN": _baustellen(),
         "MONTEURE": _monteure(),
         "BUCHUNGEN": hotels.lade_buchungen(),
-        "HOEHEN": _hoehen(),
         "KRITERIEN": hotels.lade_kriterien(),
         "STAND": date.today().strftime(hotels.DATUMSFORMAT),
     }
@@ -154,8 +146,7 @@ def main() -> int:
     print(
         f"  {len(hotels.lade_baustellen())} Baustellen, "
         f"{len(hotels.lade_monteure())} Leute, "
-        f"{len(hotels.lade_buchungen())} Buchungen, "
-        f"{len(hotels.lade_hoehen())} Höhen"
+        f"{len(hotels.lade_buchungen())} Buchungen"
     )
     print("\nPer Doppelklick öffnen. Nach Änderungen an den Stammdaten neu erzeugen.")
     return 0

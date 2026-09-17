@@ -34,42 +34,8 @@ ISOFORMAT = "%Y-%m-%d"
 UMWEGFAKTOR = 1.3
 DURCHSCHNITTSTEMPO_KMH = 40.0
 
-# Höhe eines Sprinters mit Hochdach. Normale Tiefgaragen liegen bei 2,00 m,
-# großzügig gebaute bei 2,10 m. Alles darüber braucht einen Platz im Freien.
-SPRINTERHOEHE_M = 2.60
-HOEHENGRENZE_PARKHAUS_M = 2.00
-
-# Welches Fahrzeug mitfährt, entscheidet der Einsatz und nicht die Person:
-# Wer den Sprinter rausfährt, wechselt. Diese Richtwerte stehen hinter der
-# Fahrzeugfrage bei der Suche.
-FAHRZEUGE = {
-    "pkw": (1.55, "PKW"),
-    "vito": (1.95, "Vito oder ähnlicher flacher Transporter"),
-    "sprinter": (2.35, "Sprinter ohne Hochdach"),
-    "hochdach": (2.60, "Sprinter mit Hochdach"),
-    "lkw": (3.00, "3,5-Tonner"),
-}
-
-
-def fahrzeughoehe(angabe: str) -> tuple[float, str]:
-    """Löst eine Fahrzeugangabe in Höhe und Bezeichnung auf.
-
-    Erlaubt sind die Schlüssel aus FAHRZEUGE oder eine Zahl in Metern.
-    """
-    schluessel = str(angabe).strip().lower().replace(",", ".")
-    if schluessel in FAHRZEUGE:
-        return FAHRZEUGE[schluessel]
-    try:
-        meter = float(schluessel)
-    except ValueError:
-        raise ValueError(
-            f"Fahrzeug '{angabe}' nicht verstanden. Möglich: "
-            + ", ".join(FAHRZEUGE)
-            + " oder eine Höhe in Metern."
-        ) from None
-    if not 1.0 <= meter <= 4.5:
-        raise ValueError(f"{meter} m ist keine plausible Fahrzeughöhe.")
-    return meter, "eigene Angabe"
+# Ob der Parkplatz für das jeweilige Fahrzeug hoch genug ist, prüft Diana
+# selbst beim Haus. Hier zählt nur, ob es überhaupt einen gibt.
 
 
 # --- Stammdaten ------------------------------------------------------------
@@ -128,36 +94,6 @@ def _pruefe_kuerzel(leute: list[dict]) -> None:
             + "; ".join(doppelt)
             + ". In monteure.yaml eindeutig machen."
         )
-
-
-def lade_hoehen() -> dict:
-    """Bekannte Durchfahrtshöhen je Hotel-ID, aus früheren Rückfragen.
-
-    Die Höhe steht in keiner Ausstattungsliste und muss beim Haus erfragt
-    werden. Einmal erfragt, gilt sie weiter: Ein Parkhaus wird nicht höher.
-    Ohne dieses Verzeichnis fragt man bei jedem Einsatz dieselben Hotels
-    noch einmal ab.
-    """
-    pfad = hotelordner() / "hoehen.yaml"
-    if not pfad.exists():
-        return {}
-    roh = lade_yaml(pfad).get("hoehen", {}) or {}
-    return {int(hotel_id): eintrag for hotel_id, eintrag in roh.items()}
-
-
-def speichere_hoehe(hotel_id: int, meter: float, name: str = "", quelle: str = "") -> Path:
-    pfad = hotelordner() / "hoehen.yaml"
-    pfad.parent.mkdir(parents=True, exist_ok=True)
-    bestand = lade_yaml(pfad).get("hoehen", {}) if pfad.exists() else {}
-    bestand[int(hotel_id)] = {
-        "name": name,
-        "meter": float(meter),
-        "geprueft_am": date.today().strftime(DATUMSFORMAT),
-        "quelle": quelle or "Rückfrage beim Haus",
-    }
-    with pfad.open("w", encoding="utf-8") as f:
-        yaml.safe_dump({"hoehen": bestand}, f, allow_unicode=True, sort_keys=True)
-    return pfad
 
 
 def lade_kriterien() -> dict:
@@ -274,17 +210,20 @@ def fahrzeit_minuten(luftlinie: float) -> int:
 
 # --- Parkplatz -------------------------------------------------------------
 
-# Was in der Ausstattungsliste von Booking für bzw. gegen einen Stellplatz
-# spricht, auf dem ein Sprinter mit Hochdach steht.
-PARKEN_EBENERDIG = (
+# Was in der Ausstattungsliste für einen eigenen Stellplatz spricht und was
+# dagegen. Über die Durchfahrtshöhe sagt keine dieser Angaben etwas, die ist
+# beim Haus zu erfragen.
+PARKEN_EIGEN = (
     "privatparkplatz",
     "parken vor ort",
     "parkplatz inbegriffen",
     "kostenlose parkplätze",
     "kostenloser parkplatz",
     "überdachte parkplätze",
+    "parkhaus",
+    "tiefgarage",
+    "garage",
 )
-PARKEN_HOEHENRISIKO = ("parkhaus", "tiefgarage", "garage")
 PARKEN_NUR_STRASSE = ("parkplätze an der straße", "öffentliche parkplätze")
 PARKEN_ALLGEMEIN = ("parkplatz", "parken")
 
@@ -299,55 +238,23 @@ class Parkurteil:
         return {"ok": "✅", "pruefen": "🔍", "kritisch": "⛔"}[self.status]
 
 
-def beurteile_parkplatz(
-    ausstattung: list[str], fahrzeughoehe_m: float = SPRINTERHOEHE_M
-) -> Parkurteil:
-    """Leitet aus der Ausstattungsliste ab, ob das Fahrzeug dort stehen kann.
+def beurteile_parkplatz(ausstattung: list[str]) -> Parkurteil:
+    """Sagt, ob das Haus einen eigenen Stellplatz hat.
 
-    Booking kennt nur „Parkplatz vorhanden". Ob der Stellplatz ebenerdig ist
-    oder in einer Tiefgarage mit 2,00 m Durchfahrtshöhe liegt, steht in keinem
-    Filter – macht aber den Unterschied zwischen buchen und nicht buchen.
-
-    Fährt die Truppe flach (Vito, Transporter ohne Hochdach), ist ein Parkhaus
-    kein Ausschluss mehr, sondern nur noch ein Punkt zum Nachfragen.
+    Mehr gibt die Ausstattungsliste nicht her. Ob das Fahrzeug dort auch
+    hineinpasst, klärt sich beim Haus und nicht in einer Datenbank.
     """
     klein = [str(a).lower() for a in ausstattung]
-    passt_ins_parkhaus = fahrzeughoehe_m <= HOEHENGRENZE_PARKHAUS_M
 
     def enthaelt(begriffe: tuple[str, ...]) -> bool:
         return any(b in eintrag for eintrag in klein for b in begriffe)
 
-    ebenerdig = enthaelt(PARKEN_EBENERDIG)
-    hoehenrisiko = enthaelt(PARKEN_HOEHENRISIKO)
-    nur_strasse = enthaelt(PARKEN_NUR_STRASSE)
-    irgendein = enthaelt(PARKEN_ALLGEMEIN)
-
-    if ebenerdig and not hoehenrisiko:
-        # Praxisfall Limehome Berlin: "Privatparkplatz, Parken vor Ort", kein
-        # Wort von Parkhaus, tatsächlich 2,00 m Schranke. Die Ausstattungsliste
-        # kennt keine Durchfahrtshöhe, also wird hier auch keine behauptet.
-        return Parkurteil("ok", "Stellplatz am Haus, Höhe unbestätigt")
-    if ebenerdig and hoehenrisiko:
-        return Parkurteil(
-            "pruefen",
-            f"Stellplatz und Parkhaus angegeben, Durchfahrtshöhe für "
-            f"{fahrzeughoehe_m:.2f} m erfragen",
-        )
-    if hoehenrisiko:
-        if passt_ins_parkhaus:
-            return Parkurteil(
-                "pruefen",
-                f"nur Parkhaus/Tiefgarage, bei {fahrzeughoehe_m:.2f} m machbar, "
-                "Höhe bestätigen lassen",
-            )
-        return Parkurteil(
-            "kritisch",
-            f"nur Parkhaus/Tiefgarage, für {fahrzeughoehe_m:.2f} m meist zu niedrig",
-        )
-    if nur_strasse:
-        return Parkurteil("kritisch", "nur Parken am Straßenrand, kein eigener Platz")
-    if irgendein:
-        return Parkurteil("pruefen", "Parkplatz genannt, Art unklar, nachfragen")
+    if enthaelt(PARKEN_EIGEN):
+        return Parkurteil("ok", "eigener Stellplatz")
+    if enthaelt(PARKEN_NUR_STRASSE):
+        return Parkurteil("kritisch", "nur Parken am Straßenrand")
+    if enthaelt(PARKEN_ALLGEMEIN):
+        return Parkurteil("pruefen", "Parkplatz genannt, Art unklar")
     return Parkurteil("kritisch", "kein Parkplatz angegeben")
 
 
@@ -418,8 +325,6 @@ def auswerten(
     zimmer: int,
     anzahl_naechte: int,
     kriterien: dict | None = None,
-    fahrzeughoehe_m: float = SPRINTERHOEHE_M,
-    hoehen: dict | None = None,
 ) -> list[Treffer]:
     """Rechnet Entfernung und Nachtpreis, prüft die Kriterien, sortiert.
 
@@ -427,7 +332,6 @@ def auswerten(
     Wenn im Umkreis nichts Passendes frei ist, will man sehen, woran es lag.
     """
     kriterien = kriterien or lade_kriterien()
-    hoehen = lade_hoehen() if hoehen is None else hoehen
     koord = baustelle.get("koordinaten") or {}
     b_lat, b_lon = _zahl(koord.get("lat")), _zahl(koord.get("lon"))
     if not b_lat or not b_lon:
@@ -473,24 +377,7 @@ def auswerten(
         bewertung = _zahl(bewertung_daten.get("review_score"))
         anzahl_bew = int(_zahl(bewertung_daten.get("number_of_reviews")))
         hotel_id = int(_zahl(roh.get("id")))
-        park = beurteile_parkplatz(ausstattung, fahrzeughoehe_m)
-
-        # Eine schon erfragte Höhe schlägt jede Ableitung aus der Ausstattung.
-        bekannt = hoehen.get(hotel_id)
-        if bekannt:
-            gemessen = _zahl(bekannt.get("meter"))
-            am = bekannt.get("geprueft_am", "")
-            if gemessen and gemessen < fahrzeughoehe_m:
-                park = Parkurteil(
-                    "kritisch",
-                    f"Durchfahrt {gemessen:.2f} m, erfragt am {am}"
-                    if am
-                    else f"Durchfahrt {gemessen:.2f} m",
-                )
-            elif gemessen:
-                park = Parkurteil(
-                    "ok", f"Durchfahrt {gemessen:.2f} m, erfragt am {am}"
-                )
+        park = beurteile_parkplatz(ausstattung)
 
         gruende = []
         if entfernung > max_entfernung:
@@ -657,7 +544,9 @@ def kostenschaetzung(treffer: Treffer, zimmer: int, anzahl_naechte: int) -> str:
 
 # Verbrauch in Litern je 100 km. Richtwerte für Dieselfahrzeuge im
 # Montageeinsatz, also beladen und nicht auf Verbrauch gefahren.
-VERBRAUCH = {1.55: 6.5, 1.95: 8.5, 2.35: 10.5, 2.60: 11.0, 3.00: 13.0}
+# Durchschnittsverbrauch für die Heimfahrtrechnung, alle Fahrzeuge Diesel.
+# Anpassbar in kriterien.yaml unter verbrauch_je_100km.
+VERBRAUCH_JE_100KM = 8.0
 
 # Verpflegungsmehraufwand im Inland, steuerfreie Pauschalen.
 SPESEN_VOLLER_TAG = 28.0
@@ -675,18 +564,11 @@ FAHRZEIT_ZUMUTBAR_H = 3.0
 FERNTEMPO_KMH = 75.0
 
 
-def verbrauch_je_100km(fahrzeughoehe_m: float) -> float:
-    """Ordnet der Fahrzeughöhe einen Verbrauch zu, nächstliegende Klasse."""
-    passend = min(VERBRAUCH, key=lambda h: abs(h - fahrzeughoehe_m))
-    return VERBRAUCH[passend]
-
-
 def heimfahrt_vergleich(
     entfernung_km: float,
     anzahl_naechte: int,
     personen: int,
     preis_pro_nacht: float,
-    fahrzeughoehe_m: float = SPRINTERHOEHE_M,
     kriterien: dict | None = None,
     fahrzeuge: int = 1,
 ) -> dict:
@@ -702,7 +584,7 @@ def heimfahrt_vergleich(
     tempo = _zahl(kriterien.get("ferntempo_kmh"), FERNTEMPO_KMH)
 
     strecke = fahrstrecke_km(entfernung_km)
-    liter100 = verbrauch_je_100km(fahrzeughoehe_m)
+    liter100 = _zahl(kriterien.get("verbrauch_je_100km"), VERBRAUCH_JE_100KM)
     arbeitstage = max(1, anzahl_naechte + 1)
 
     # Hotel: einmal hin, einmal zurück.

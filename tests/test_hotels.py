@@ -17,7 +17,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "werkzeuge"))
 
 from hotels import (  # noqa: E402
-    HOEHENGRENZE_PARKHAUS_M,
     auswerten,
     beurteile_parkplatz,
     finde_baustelle,
@@ -92,22 +91,15 @@ class Entfernung(unittest.TestCase):
 
 
 class Parkplatz(unittest.TestCase):
-    """Der Punkt, an dem Booking nichts Brauchbares liefert."""
+    """Die Ausstattungsliste sagt nur, ob es einen Stellplatz gibt."""
 
-    def test_privatparkplatz_ist_in_ordnung(self):
+    def test_privatparkplatz_zaehlt_als_eigener_stellplatz(self):
         urteil = beurteile_parkplatz(["Privatparkplatz", "Parken vor Ort"])
         self.assertEqual(urteil.status, "ok")
 
-    def test_reines_parkhaus_ist_fuer_den_sprinter_kritisch(self):
-        urteil = beurteile_parkplatz(["Parkplatz", "Parkhaus"], fahrzeughoehe_m=2.60)
-        self.assertEqual(urteil.status, "kritisch")
-        self.assertIn("2.60", urteil.hinweis)
-
-    def test_parkhaus_bei_flachem_fahrzeug_nur_pruefen(self):
-        urteil = beurteile_parkplatz(
-            ["Parkplatz", "Parkhaus"], fahrzeughoehe_m=HOEHENGRENZE_PARKHAUS_M
-        )
-        self.assertEqual(urteil.status, "pruefen")
+    def test_parkhaus_zaehlt_auch_als_stellplatz(self):
+        # Ob das Fahrzeug hineinpasst, klärt Diana beim Haus
+        self.assertEqual(beurteile_parkplatz(["Parkplatz", "Parkhaus"]).status, "ok")
 
     def test_strassenparken_ist_kein_stellplatz(self):
         urteil = beurteile_parkplatz(["Parkplätze an der Straße"])
@@ -118,11 +110,6 @@ class Parkplatz(unittest.TestCase):
 
     def test_unklare_angabe_wird_zum_nachfragen(self):
         self.assertEqual(beurteile_parkplatz(["Parkplatz"]).status, "pruefen")
-
-    def test_stellplatz_und_parkhaus_bleibt_zu_pruefen(self):
-        urteil = beurteile_parkplatz(["Privatparkplatz", "Parkhaus"])
-        self.assertEqual(urteil.status, "pruefen")
-
 
 class Auswertung(unittest.TestCase):
     def test_nachtpreis_teilt_durch_zimmer_und_naechte(self):
@@ -167,18 +154,6 @@ class Auswertung(unittest.TestCase):
             kriterien=KRITERIEN,
         )
         self.assertFalse(treffer[0].geeignet)
-
-    def test_parkhaus_fliegt_beim_sprinter_raus(self):
-        treffer = auswerten(
-            [hotel("Nur Parkhaus", 53.5400, 8.5810, 300, ausstattung=["Parkhaus"])],
-            BAUSTELLE,
-            zimmer=1,
-            anzahl_naechte=4,
-            kriterien=KRITERIEN,
-            fahrzeughoehe_m=2.60,
-        )
-        self.assertFalse(treffer[0].geeignet)
-        self.assertIn("Parken", treffer[0].ausschluss)
 
     def test_ausschlussgrund_steht_dabei_statt_still_zu_verschwinden(self):
         treffer = auswerten(
@@ -358,21 +333,6 @@ class FehlendeBewertung(unittest.TestCase):
         self.assertIn("ohne Bewertung", text)
 
 
-class HoeheWirdNichtBehauptet(unittest.TestCase):
-    """Praxisfall Limehome Berlin: grüner Stellplatz, trotzdem 2,00 m Schranke."""
-
-    def test_stellplatz_ohne_parkhaus_behauptet_keine_hoehe(self):
-        urteil = beurteile_parkplatz(["Privatparkplatz", "Parken vor Ort"])
-        self.assertEqual(urteil.status, "ok")
-        self.assertIn("unbestätigt", urteil.hinweis)
-        self.assertNotIn("ebenerdig", urteil.hinweis)
-
-    def test_uebersicht_fordert_die_hoehe_immer_an(self):
-        treffer = auswerten([hotel("Passt", 53.5400, 8.5810, 300)], BAUSTELLE,
-                            zimmer=1, anzahl_naechte=4, kriterien=KRITERIEN)
-        self.assertIn("Durchfahrtshöhe", uebersicht(treffer))
-
-
 class PreislimitJeBaustelle(unittest.TestCase):
     """Berlin braucht andere Zahlen als Marburg."""
 
@@ -413,54 +373,6 @@ class PreislimitJeBaustelle(unittest.TestCase):
         ohne_limit = dict(self.BERLIN, max_preis_pro_nacht=0)
         treffer = auswerten([self._berliner_hotel(3600)], ohne_limit, zimmer=3,
                             anzahl_naechte=4, kriterien=KRITERIEN)
-        self.assertTrue(treffer[0].geeignet, treffer[0].ausschluss)
-
-
-class BekannteHoehen(unittest.TestCase):
-    """Einmal erfragt, gilt weiter. Ein Parkhaus wird nicht höher."""
-
-    @staticmethod
-    def _haus(hid=77):
-        # Ausstattung sagt "eigener Stellplatz", die erfragte Höhe sagt etwas anderes
-        return hotel("Sieht gut aus", 53.5400, 8.5810, 300,
-                     ausstattung=["Privatparkplatz", "Parken vor Ort"], hid=hid)
-
-    def test_erfragte_hoehe_schlaegt_die_ausstattungsliste(self):
-        hoehen = {77: {"meter": 2.00, "geprueft_am": "16.09.2026"}}
-        treffer = auswerten([self._haus()], BAUSTELLE, zimmer=1, anzahl_naechte=4,
-                            kriterien=KRITERIEN, fahrzeughoehe_m=2.35, hoehen=hoehen)
-        self.assertFalse(treffer[0].geeignet)
-        self.assertIn("2.00 m", treffer[0].ausschluss)
-
-    def test_ausschlussgrund_nennt_das_pruefdatum(self):
-        hoehen = {77: {"meter": 1.80, "geprueft_am": "16.09.2026"}}
-        treffer = auswerten([self._haus()], BAUSTELLE, zimmer=1, anzahl_naechte=4,
-                            kriterien=KRITERIEN, fahrzeughoehe_m=2.35, hoehen=hoehen)
-        self.assertIn("16.09.2026", treffer[0].ausschluss)
-
-    def test_ausreichende_hoehe_laesst_das_haus_durch(self):
-        hoehen = {77: {"meter": 3.20, "geprueft_am": "16.09.2026"}}
-        treffer = auswerten([self._haus()], BAUSTELLE, zimmer=1, anzahl_naechte=4,
-                            kriterien=KRITERIEN, fahrzeughoehe_m=2.35, hoehen=hoehen)
-        self.assertTrue(treffer[0].geeignet, treffer[0].ausschluss)
-        self.assertIn("3.20 m", treffer[0].park.hinweis)
-
-    def test_ohne_eintrag_bleibt_es_bei_der_ableitung(self):
-        treffer = auswerten([self._haus()], BAUSTELLE, zimmer=1, anzahl_naechte=4,
-                            kriterien=KRITERIEN, fahrzeughoehe_m=2.35, hoehen={})
-        self.assertIn("unbestätigt", treffer[0].park.hinweis)
-
-    def test_eintrag_gilt_nur_fuer_das_eigene_haus(self):
-        hoehen = {999: {"meter": 1.80, "geprueft_am": "16.09.2026"}}
-        treffer = auswerten([self._haus(hid=77)], BAUSTELLE, zimmer=1,
-                            anzahl_naechte=4, kriterien=KRITERIEN,
-                            fahrzeughoehe_m=2.35, hoehen=hoehen)
-        self.assertTrue(treffer[0].geeignet)
-
-    def test_flaches_fahrzeug_kommt_durch_dieselbe_einfahrt(self):
-        hoehen = {77: {"meter": 2.00, "geprueft_am": "16.09.2026"}}
-        treffer = auswerten([self._haus()], BAUSTELLE, zimmer=1, anzahl_naechte=4,
-                            kriterien=KRITERIEN, fahrzeughoehe_m=1.95, hoehen=hoehen)
         self.assertTrue(treffer[0].geeignet, treffer[0].ausschluss)
 
 
@@ -567,11 +479,13 @@ class HeimfahrtGegenHotel(unittest.TestCase):
 
     KRIT = {"dieselpreis_je_liter": 2.39, "durchschnittstempo_kmh": 40}
 
-    def _rechnen(self, luftlinie, naechte, personen, preis, hoehe=1.55):
+    def _rechnen(self, luftlinie, naechte, personen, preis, verbrauch=None):
         from hotels import heimfahrt_vergleich
 
-        return heimfahrt_vergleich(luftlinie, naechte, personen, preis,
-                                   hoehe, self.KRIT)
+        krit = dict(self.KRIT)
+        if verbrauch:
+            krit["verbrauch_je_100km"] = verbrauch
+        return heimfahrt_vergleich(luftlinie, naechte, personen, preis, krit)
 
     def test_nahe_baustelle_spricht_fuer_heimfahrt(self):
         # Marburg, rund 89 km Strecke ab Fulda, 4 Nächte, 2 Mann
@@ -608,10 +522,10 @@ class HeimfahrtGegenHotel(unittest.TestCase):
         # Heimfahrt: fünf Arbeitstage à 14
         self.assertAlmostEqual(v["heimfahrt"]["spesen"], 5 * 14, places=2)
 
-    def test_hoeheres_fahrzeug_verbraucht_mehr(self):
-        klein = self._rechnen(68, 4, 2, 90, hoehe=1.55)
-        gross = self._rechnen(68, 4, 2, 90, hoehe=3.00)
-        self.assertGreater(gross["heimfahrt"]["sprit"], klein["heimfahrt"]["sprit"])
+    def test_hoeherer_verbrauch_kostet_mehr(self):
+        sparsam = self._rechnen(68, 4, 2, 90, verbrauch=6.0)
+        durstig = self._rechnen(68, 4, 2, 90, verbrauch=13.0)
+        self.assertGreater(durstig["heimfahrt"]["sprit"], sparsam["heimfahrt"]["sprit"])
 
     def test_gefahrene_kilometer_sind_hin_und_zurueck(self):
         v = self._rechnen(100, 2, 1, 90)

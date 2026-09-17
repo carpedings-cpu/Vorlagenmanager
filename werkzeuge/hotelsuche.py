@@ -40,30 +40,6 @@ def _auftrag_bauen(args: argparse.Namespace) -> dict:
 
     zimmer = args.zimmer or len(besetzung) or 1
 
-    # Das höchste Fahrzeug bestimmt, ob ein Parkhaus überhaupt in Frage kommt.
-    # Angegeben schlägt hinterlegt: Wer den Sprinter fährt, wechselt je Einsatz.
-    if args.fahrzeug:
-        fahrzeughoehe, fahrzeugname = hotels.fahrzeughoehe(args.fahrzeug)
-    else:
-        hoehen = [
-            hotels._zahl(m.get("fahrzeughoehe_m"), hotels.SPRINTERHOEHE_M)
-            for m in besetzung
-        ]
-        fahrzeughoehe = max(hoehen) if hoehen else hotels.SPRINTERHOEHE_M
-        hoechster = next(
-            (
-                m
-                for m in besetzung
-                if hotels._zahl(m.get("fahrzeughoehe_m"), hotels.SPRINTERHOEHE_M)
-                == fahrzeughoehe
-            ),
-            None,
-        )
-        fahrzeugname = (
-            (hoechster or {}).get("fahrzeug")
-            or f"aus den Stammdaten, {fahrzeughoehe:.2f} m"
-        )
-
     radius = hotels._zahl(
         baustelle.get("max_entfernung_km") or kriterien.get("max_entfernung_km"), 15.0
     )
@@ -115,8 +91,6 @@ def _auftrag_bauen(args: argparse.Namespace) -> dict:
             for m in besetzung
         ],
         "zimmer": zimmer,
-        "fahrzeughoehe_m": fahrzeughoehe,
-        "fahrzeug": fahrzeugname,
         "suche": {
             "radius_km": radius,
             "mindestbewertung": hotels._zahl(kriterien.get("mindestbewertung"), 8.0),
@@ -170,8 +144,6 @@ def _auftrag_zeigen(auftrag: dict) -> str:
         + (", Frühstück" if s["fruehstueck"] else "")
         + (", freie Stornierung" if s["freie_stornierung"] else "")
         + (", Parkplatz" if s["parkplatz_pflicht"] else ""),
-        f"Fahrzeug:  {auftrag.get('fahrzeug', '')}"
-        f" ({auftrag['fahrzeughoehe_m']:.2f} m)",
     ]
     if b["hinweis"]:
         zeilen.append(f"Hinweis:   {b['hinweis']}")
@@ -227,7 +199,6 @@ def befehl_auswerten(args: argparse.Namespace) -> int:
         baustelle,
         zimmer=auftrag["zimmer"],
         anzahl_naechte=auftrag["zeitraum"]["naechte"],
-        fahrzeughoehe_m=auftrag.get("fahrzeughoehe_m", hotels.SPRINTERHOEHE_M),
     )
 
     print(hotels.uebersicht(treffer, anzahl=args.anzahl))
@@ -284,9 +255,6 @@ def befehl_anfrage(args: argparse.Namespace) -> int:
         "naechte": str(auftrag["zeitraum"]["naechte"]),
         "zimmer": str(auftrag["zimmer"]),
         "fahrzeuge": str(auftrag["zimmer"]),
-        "fahrzeughoehe": f"{auftrag.get('fahrzeughoehe_m', hotels.SPRINTERHOEHE_M):.2f}".replace(
-            ".", ","
-        ),
         "fruehstueck_ab": auftrag["suche"].get("fruehstueck_ab") or "6:00",
         # Eine Wochenpauschale bei vier Nächten zu erfragen wirkt unbedacht.
         # Der Absatz erscheint erst ab der Dauer, ab der sie sich lohnt.
@@ -337,9 +305,6 @@ def _heimfahrt_zeigen(auftrag: dict, preis_pro_nacht: float) -> None:
         anzahl_naechte=auftrag["zeitraum"]["naechte"],
         personen=auftrag["zimmer"],
         preis_pro_nacht=preis_pro_nacht,
-        fahrzeughoehe_m=hotels._zahl(
-            auftrag.get("fahrzeughoehe_m"), hotels.SPRINTERHOEHE_M
-        ),
         kriterien=kriterien,
     )
     print()
@@ -381,21 +346,6 @@ def befehl_buchen(args: argparse.Namespace) -> int:
     return 0
 
 
-def befehl_hoehe(args: argparse.Namespace) -> int:
-    """Hält eine erfragte Durchfahrtshöhe fest.
-
-    Die Höhe steht in keiner Ausstattungsliste, muss also beim Haus erfragt
-    werden. Einmal notiert, sortiert die Suche das Hotel künftig selbst aus,
-    statt es wieder vorzuschlagen und wieder nachzufragen. Ein Parkhaus wird
-    nicht höher, der Wert hält also.
-    """
-    pfad = hotels.speichere_hoehe(
-        args.hotel_id, args.meter, args.name or "", args.quelle or ""
-    )
-    print(f"{args.name or args.hotel_id}: {args.meter:.2f} m, notiert in {pfad}")
-    return 0
-
-
 def befehl_baustellen(_: argparse.Namespace) -> int:
     for b in hotels.lade_baustellen():
         koord = b.get("koordinaten") or {}
@@ -409,11 +359,9 @@ def befehl_baustellen(_: argparse.Namespace) -> int:
 
 def befehl_monteure(_: argparse.Namespace) -> int:
     for m in hotels.lade_monteure():
-        hoehe = m.get("fahrzeughoehe_m")
         print(
             f"{m.get('kuerzel', '?'):6} {m.get('name', '?'):28} "
             f"{m.get('fahrzeug', '')}"
-            + (f" ({hoehe} m)" if hoehe else "")
         )
     return 0
 
@@ -430,11 +378,6 @@ def main() -> int:
     p_auftrag.add_argument("bis", help="Abreise, TT.MM.JJJJ")
     p_auftrag.add_argument("--monteure", nargs="*", default=[], help="Kürzel")
     p_auftrag.add_argument("--zimmer", type=int, help="falls ohne Monteurliste")
-    p_auftrag.add_argument(
-        "--fahrzeug",
-        help="pkw, vito, sprinter, hochdach, lkw oder eine Höhe in Metern. "
-        "Ohne Angabe gilt das höchste Fahrzeug der mitfahrenden Leute.",
-    )
     p_auftrag.add_argument("--json", help="Auftrag zusätzlich als JSON ablegen")
     p_auftrag.set_defaults(funktion=befehl_auftrag)
 
@@ -461,13 +404,6 @@ def main() -> int:
     p_buchen.add_argument("--gesamt", type=float, help="Angebotssumme, falls bekannt")
     p_buchen.add_argument("--fazit", help="z. B. 'Parkplatz eng, Frühstück ab 5:30'")
     p_buchen.set_defaults(funktion=befehl_buchen)
-
-    p_hoehe = unter.add_parser("hoehe", help="erfragte Durchfahrtshöhe festhalten")
-    p_hoehe.add_argument("hotel_id", type=int, help="Hotel-ID aus --ids")
-    p_hoehe.add_argument("meter", type=float, help="z. B. 2.00")
-    p_hoehe.add_argument("--name", help="Hotelname, nur zum Wiedererkennen")
-    p_hoehe.add_argument("--quelle", help="woher der Wert stammt")
-    p_hoehe.set_defaults(funktion=befehl_hoehe)
 
     unter.add_parser("baustellen", help="hinterlegte Baustellen").set_defaults(
         funktion=befehl_baustellen

@@ -1,6 +1,6 @@
 ---
 name: monteurhotel
-description: Findet Hotels mit verfügbaren Einzelzimmern in der Nähe einer Baustelle für Monteure - Einzelzimmer mit Dusche/WC, Frühstück, Parkplatz für den Sprinter, gut bewertet. Nutze diesen Skill IMMER wenn Diana eine Übernachtung für Monteure braucht. Auch triggern bei "Hotel für Baustelle X", "Übernachtung für die Monteure", "Zimmer für KW 41", "wo schlafen die Jungs in Bremerhaven", "Monteurzimmer suchen", "Hotel buchen für Montage". Ebenso nutzen, wenn eine neue Baustelle oder ein neuer Monteur in die Stammdaten soll, wenn eine Anfrage ans Hotel geschrieben werden soll, oder wenn eine Buchung in der Historie festgehalten wird.
+description: Findet Hotels mit verfügbaren Einzelzimmern in der Nähe einer Baustelle für Monteure - Einzelzimmer mit Dusche/WC, Frühstück, Parkplatz am Haus, gut bewertet. Nutze diesen Skill IMMER wenn Diana eine Übernachtung für Monteure braucht. Auch triggern bei "Hotel für Baustelle X", "Übernachtung für die Monteure", "Zimmer für KW 41", "wo schlafen die Jungs in Bremerhaven", "Monteurzimmer suchen", "Hotel buchen für Montage". Ebenso nutzen, wenn eine neue Baustelle oder ein neuer Monteur in die Stammdaten soll, wenn eine Anfrage ans Hotel geschrieben werden soll, oder wenn eine Buchung in der Historie festgehalten wird.
 ---
 
 # Monteurhotel
@@ -15,14 +15,10 @@ die Verfügbarkeit aus der Live-Suche, die Bewertung der Treffer aus
    Monat frei war, ist heute ausgebucht. Jeder Vorschlag stammt aus einer
    Suche für genau diesen Zeitraum, nicht aus der Historie und nicht aus dem
    Gedächtnis.
-2. **Parkplatz ist ein hartes Kriterium, kein Komfort.** Der Sprinter muss
-   nachts stehen können. Die Durchfahrtshöhe steht in **keiner**
-   Ausstattungsliste, auch nicht indirekt: Das Limehome Berlin führt
-   „Privatparkplatz, Parken vor Ort" ohne jede Erwähnung eines Parkhauses
-   und hat trotzdem 2,00 m Schranke. Deshalb die Höhe bei **jedem** Haus
-   erfragen, das du vorschlägst, auch bei grünem Häkchen. Das Häkchen heißt
-   nur, dass ein Stellplatz existiert, nicht dass er hoch genug ist. Steht die
-   Höhe schon in `hotels/hoehen.yaml`, gilt sie und es wird nicht neu gefragt.
+2. **Parkplatz ja oder nein, mehr nicht.** Ein Haus ohne eigenen Stellplatz
+   fällt raus. Ob das Fahrzeug dort auch hineinpasst, prüft Diana selbst beim
+   Haus, das ist ausdrücklich nicht Aufgabe der Suche. Keine Durchfahrtshöhen
+   sammeln, keine berechnen, keine annehmen.
 3. **Entfernung ist Luftlinie.** Das Skript rechnet keine Route. Die Fahrzeit
    ist eine Schätzung und wird auch so benannt. Bei Wasser, Bahntrasse oder
    Werksgelände dazwischen kann die echte Fahrt deutlich länger sein, das bei
@@ -100,7 +96,6 @@ Für jeden Treffer, den du vorschlägst, und nicht nur für die mit 🔍:
 das Detailwerkzeug derselben Hotelquelle, das Rückfragen zu einzelnen Häusern
 beantwortet, mit den Hotel-IDs aus `--ids`. Sinnvolle Fragen:
 
-- Durchfahrtshöhe des Stellplatzes, immer, egal was die Ausstattung sagt
 - ab wann Frühstück serviert wird, werktags
 - was der Parkplatz pro Nacht kostet, falls nicht inklusive
 - ob es echte Einzelzimmer gibt oder nur Doppelzimmer zur Einzelnutzung
@@ -109,23 +104,10 @@ Antworten ohne Beleg nicht als gesichert ausgeben. Was das Portal nicht
 hergibt, kommt in die Anfragemail an Punkt 2 und 3.
 
 **Vorsicht bei weichen Formulierungen.** Das Detailwerkzeug antwortet auch
-dann, wenn es die Zahl nicht kennt: „is likely an open outdoor lot",
+dann, wenn es die Sache nicht sicher weiß: „is likely an open outdoor lot",
 „suggests there is no height barrier". Das ist eine Vermutung aus der
-Ausstattungsliste, kein erfragter Wert, und sie darf weder ins
-Höhenverzeichnis noch als gesichert in den Vorschlag. Ins Verzeichnis kommt
-nur eine genannte Zahl in Metern. Alles andere geht als Frage ans Haus.
-
-**Jede erfragte Durchfahrtshöhe sofort festhalten**, auch und gerade die zu
-niedrigen:
-
-```bash
-python3 werkzeuge/hotelsuche.py hoehe <hotel-id> <meter> --name "<Hotel>"
-```
-
-Das Verzeichnis liegt in `hotels/hoehen.yaml` und wird bei jeder Auswertung
-gelesen. Ein eingetragenes Haus wird künftig selbst aussortiert, mit Höhe und
-Prüfdatum als Grund, statt wieder vorgeschlagen und wieder abgefragt zu
-werden. Ein Parkhaus wird nicht höher, der Wert hält.
+Ausstattungsliste, kein erfragter Wert, und darf nicht als gesichert in den
+Vorschlag.
 
 ### 5. Vorschlagen
 
@@ -146,7 +128,7 @@ Ab fünf Nächten setzt der Auftrag `direktanfrage_noetig`. Dann zusätzlich:
 python3 werkzeuge/hotelsuche.py anfrage <auftrag.json> --hotel "<Name>"
 ```
 
-Der Text fragt Pauschale, Frühstückszeit, Durchfahrtshöhe, Storno und
+Der Text fragt Pauschale, Frühstückszeit, Parkplatz, Storno und
 Sammelrechnung ab. Vor dem Versand zeigen. Formulierung anpassen mit dem Skill
 `diana-formulierungen`, nie ungefragt den Inhalt ändern.
 
@@ -159,10 +141,8 @@ python3 werkzeuge/hotelsuche.py buchen <auftrag.json> --hotel "<Name>" \
     --preis <EUR/Nacht> --gesamt <Angebotssumme> --fazit "<kurz>"
 ```
 
-Das Fazit ist der eigentliche Wert der Historie. Die bestätigte
-Durchfahrtshöhe gehört immer hinein, weil sie sonst nirgends steht:
-„Stellplatz im Hof, Durchfahrt 3,20 m, Frühstück ab 6:00" erspart beim
-nächsten Einsatz eine halbe Stunde Recherche und einen Fehlgriff. Wenn Diana nach dem Einsatz eine Rückmeldung
+Das Fazit ist der eigentliche Wert der Historie. „Parkplatz eng, Frühstück
+erst ab 6:30" erspart beim nächsten Einsatz eine halbe Stunde Recherche. Wenn Diana nach dem Einsatz eine Rückmeldung
 gibt, nachtragen.
 
 ## Neue Baustelle anlegen
@@ -188,10 +168,7 @@ reinfahren, nicht auf die Mitte des Grundstücks: gesucht wird um diesen Punkt.
 Wenn du die Koordinaten nicht sicher weißt, sag das und lass sie nachreichen.
 Eine falsche Koordinate verschiebt die gesamte Suche, ohne dass es auffällt.
 
-Neue Monteure analog in `hotels/monteure.yaml`, mit `fahrzeughoehe_m`. Der Wert
-entscheidet, ob Parkhäuser ausgeschlossen werden: Sprinter mit Hochdach rund
-2,60 m, ohne Hochdach rund 2,35 m, Vito rund 1,95 m. Leer heißt 2,60 m, also
-im Zweifel Parkhaus raus.
+Neue Monteure analog in `hotels/monteure.yaml`.
 
 **Kürzel müssen eindeutig sein.** Das Skript bricht sonst ab, und das ist
 Absicht: Zwei Leute mit demselben Kürzel würden beim Nachschlagen still
@@ -233,11 +210,11 @@ python3 werkzeuge/cockpit.py
 
 Sie landet im Datenordner unter `hotels/cockpit.html` und trägt die Stammdaten
 fest eingebaut. **Nach jeder Änderung an Baustellen, Monteuren, Buchungen oder
-Höhen neu erzeugen**, sonst zeigt sie einen alten Stand. Kommt Diana mit einem
+Buchungen neu erzeugen**, sonst zeigt sie einen alten Stand. Kommt Diana mit einem
 Auftragstext aus dem Cockpit, ist das derselbe Ablauf wie oben ab Schritt 2:
 Der Text enthält Koordinaten, Radius, Zimmerzahl und Fahrzeughöhe schon fertig.
 
-Trägt sie im Cockpit Buchungen oder Höhen ein, liegen die zunächst nur im
+Trägt sie im Cockpit Buchungen oder Monteure ein, liegen die zunächst nur im
 Browser. Die Exportknöpfe schreiben die YAML-Dateien, die in den Datenordner
 gehören. Wenn sie also von Einträgen spricht, die im Skript nicht auftauchen:
 danach fragen, ob der Export schon gelaufen ist.

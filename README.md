@@ -86,11 +86,13 @@ Einzelzimmer mit Dusche und WC, Frühstück, Parkplatz und mindestens gute
 Bewertung. Bewertet und sortiert wird hier im Repo, nachvollziehbar aus
 Entfernung, Preis je Zimmer und Nacht, Bewertung und Parkplatz.
 
-Der Punkt, an dem Portale nicht weiterhelfen, ist der Stellplatz. „Parkplatz
-vorhanden" sagt nichts über die Durchfahrtshöhe, und ein Sprinter mit Hochdach
-misst rund 2,60 m gegen 2,00 m in einer üblichen Tiefgarage. Hotels mit reinem
-Parkhaus fallen deshalb raus, sobald ein hohes Fahrzeug mitfährt; unklare
-Angaben werden zum Nachfragen markiert statt stillschweigend akzeptiert.
+Häuser ohne eigenen Stellplatz fallen raus. Ob das jeweilige Fahrzeug dort
+auch hineinpasst, wird beim Haus geklärt und nicht gerechnet.
+
+Liegt die Baustelle in Reichweite des Betriebssitzes, hängt die Auswertung eine
+Gegenrechnung an: Zimmer, Diesel und Verpflegungspauschale gegen tägliches
+Heimfahren, dazu die Fahrzeit. Bei Marburg mit zwei Mann und vier Nächten sind
+das gut sechshundert Euro Unterschied.
 
 Ab fünf Nächten kommt zusätzlich die Direktanfrage ans Hotel dazu, weil
 Monteurpauschalen regelmäßig unter dem Portalpreis liegen. Jede Buchung landet

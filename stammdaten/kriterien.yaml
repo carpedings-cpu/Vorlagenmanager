@@ -39,6 +39,8 @@ betriebssitz:
 # Stand 16.09.2026, Tagesdurchschnitt Deutschland. Schwankt stark, zuletzt
 # zwischen 1,96 im Jahresmittel und 2,39 in der laufenden Woche.
 dieselpreis_je_liter: 2.39
+# Durchschnittsverbrauch für diese Rechnung, alle Fahrzeuge Diesel.
+verbrauch_je_100km: 8.0
 
 # Bis zu dieser Entfernung wird die Heimfahrt überhaupt gegengerechnet.
 heimfahrt_pruefen_bis_km: 150

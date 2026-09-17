@@ -167,19 +167,6 @@ footer{max-width:1100px;margin:0 auto;padding:0 16px 30px;font-size:13px;color:v
     </div>
     <label>Wer fährt</label>
     <div class="leute" id="leute"></div>
-    <div class="reihe" style="margin-top:14px">
-      <div>
-        <label for="fahrzeug">Womit fahrt ihr</label>
-        <select id="fahrzeug">
-          <option value="">nach Stammdaten der Leute</option>
-          <option value="pkw|1.55">Kein Sprinter, nur PKW</option>
-          <option value="vito|1.95">Vito oder flacher Transporter</option>
-          <option value="sprinter|2.35">Sprinter ohne Hochdach</option>
-          <option value="hochdach|2.60">Sprinter mit Hochdach</option>
-          <option value="lkw|3.00">3,5-Tonner</option>
-        </select>
-      </div>
-    </div>
     <p class="hinweis" id="lage"></p>
   </div>
 
@@ -249,33 +236,6 @@ footer{max-width:1100px;margin:0 auto;padding:0 16px 30px;font-size:13px;color:v
 
 <section id="haeuser">
   <div class="karte">
-    <h2>Bekannte Durchfahrtshöhen</h2>
-    <p class="hinweis">Die Höhe steht in keiner Ausstattungsliste und muss beim
-      Haus erfragt werden. Einmal notiert, gilt sie weiter: Ein Parkhaus wird
-      nicht höher.</p>
-    <div id="hoehenListe"></div>
-  </div>
-  <div class="karte">
-    <h2>Höhe nachtragen</h2>
-    <div class="reihe">
-      <div><label for="hId">Hotel-ID</label><input type="number" id="hId" placeholder="aus der Trefferliste"></div>
-      <div><label for="hName">Hotel</label><input type="text" id="hName"></div>
-      <div><label for="hMeter">Durchfahrt in Meter</label><input type="number" step="0.05" id="hMeter" placeholder="2.00"></div>
-    </div>
-    <div class="knopfreihe">
-      <button class="tat" id="hSpeichern">Eintragen</button>
-      <button class="leise" id="hExport">Als YAML exportieren</button>
-    </div>
-    <div id="hAusgabe" hidden>
-      <h3>hoehen.yaml</h3>
-      <pre class="block" id="hAusgabeText"></pre>
-      <div class="knopfreihe">
-        <button class="tat" data-kopie="hAusgabeText">Kopieren</button>
-        <button class="leise" data-schliessen="hAusgabe">Schließen</button>
-      </div>
-    </div>
-  </div>
-  <div class="karte">
     <h2>Schon gebucht</h2>
     <div id="hausListe"></div>
   </div>
@@ -304,17 +264,7 @@ footer{max-width:1100px;margin:0 auto;padding:0 16px 30px;font-size:13px;color:v
       </div>
       <div>
         <label for="mFahrzeug">Fahrzeug</label>
-        <select id="mFahrzeug">
-          <option value="">unbekannt, es wird mit 2,60 m gerechnet</option>
-          <option value="Sprinter mit Hochdach|2.60">Sprinter mit Hochdach, 2,60 m</option>
-          <option value="Sprinter ohne Hochdach|2.35">Sprinter ohne Hochdach, 2,35 m</option>
-          <option value="Transporter flach|1.95">Vito oder ähnlich, 1,95 m</option>
-          <option value="eigene">andere Höhe eintragen</option>
-        </select>
-      </div>
-      <div id="mEigeneHoehe" hidden>
-        <label for="mHoehe">Höhe in Meter</label>
-        <input type="number" step="0.05" id="mHoehe" placeholder="2.60">
+        <input type="text" id="mFahrzeug" placeholder="z. B. Sprinter, PKW">
       </div>
     </div>
     <div>
@@ -360,10 +310,7 @@ footer{max-width:1100px;margin:0 auto;padding:0 16px 30px;font-size:13px;color:v
 const BAUSTELLEN = /*{{BAUSTELLEN}}*/[];
 const MONTEURE   = /*{{MONTEURE}}*/[];
 const BUCHUNGEN  = /*{{BUCHUNGEN}}*/[];
-const HOEHEN     = /*{{HOEHEN}}*/{};
 const KRITERIEN  = /*{{KRITERIEN}}*/{};
-
-const SPRINTER = 2.60;
 
 /* localStorage ist pro Browser und kann fehlen oder gesperrt sein. Alles
    lesen und schreiben deshalb in try/catch, die App muss auch ohne laufen. */
@@ -378,11 +325,9 @@ function merkeSchreiben(schluessel, wert){
 }
 
 let eigeneBuchungen = merkeLesen("kpc_hotel_buchungen", []);
-let eigeneHoehen    = merkeLesen("kpc_hotel_hoehen", {});
 let eigeneLeute     = merkeLesen("kpc_hotel_monteure", []);
 
 function alleBuchungen(){ return BUCHUNGEN.concat(eigeneBuchungen); }
-function alleHoehen(){ return Object.assign({}, HOEHEN, eigeneHoehen); }
 function alleLeute(){ return MONTEURE.concat(eigeneLeute); }
 
 /* --- Hilfen ------------------------------------------------------------- */
@@ -452,10 +397,9 @@ function leuteFuellen(behaelter, praefix){
   behaelter.innerHTML = alleLeute()
     .filter(m => !m.buero)
     .map(m => {
-      const hoehe = m.fahrzeughoehe_m ? `${Number(m.fahrzeughoehe_m).toFixed(2)} m` : "Höhe offen";
       return `<label class="person">
         <input type="checkbox" value="${text(m.kuerzel)}" name="${praefix}">
-        <span>${text(m.name || m.kuerzel)}<br><small>${text(m.kuerzel)} &middot; ${hoehe}</small></span>
+        <span>${text(m.name || m.kuerzel)}<br><small>${text(m.kuerzel)}</small></span>
       </label>`;
     }).join("");
   behaelter.querySelectorAll("input").forEach(kasten => {
@@ -525,19 +469,6 @@ function auftragZeichnen(){
 
   const zimmer = besetzung.length || 1;
 
-  // Angegeben schlägt hinterlegt: Wer den Sprinter rausfährt, wechselt.
-  const wahl = stelle("fahrzeug").value;
-  let fahrzeug, fahrzeugName;
-  if(wahl){
-    const [schluessel, meter] = wahl.split("|");
-    fahrzeug = zahlOder(meter, SPRINTER);
-    fahrzeugName = stelle("fahrzeug").selectedOptions[0].textContent.trim();
-  }else{
-    const hoehen = besetzung.map(m => zahlOder(m.fahrzeughoehe_m, SPRINTER));
-    fahrzeug = hoehen.length ? Math.max.apply(null, hoehen) : SPRINTER;
-    const hoechster = besetzung.find(m => zahlOder(m.fahrzeughoehe_m, SPRINTER) === fahrzeug);
-    fahrzeugName = (hoechster && hoechster.fahrzeug) || "nach Stammdaten";
-  }
   const namen = besetzung.length
     ? besetzung.map(m => `${m.kuerzel} (${m.name || m.kuerzel})`).join(", ")
     : "noch offen";
@@ -550,7 +481,6 @@ function auftragZeichnen(){
     `Nächte: ${n}`,
     `Zimmer: ${zimmer} Einzelzimmer mit Dusche und WC`,
     `Besetzung: ${namen}`,
-    `Fahrzeug: ${fahrzeugName}, ${fahrzeug.toFixed(2)} m`,
     `Radius: ${radius} km`,
     limit ? `Preislimit: ${limit} EUR je Zimmer und Nacht` : `Preislimit: keines`,
     heimweg ? `Heimweg: ${heimweg.toFixed(0)} km ab ${(KRITERIEN.betriebssitz || {}).ort || "Betriebssitz"}, einfache Strecke` : "",
@@ -570,11 +500,9 @@ function auftragZeichnen(){
   // eine Buchung scheitert, reisen deshalb mit.
   zeilen.push("");
   zeilen.push("Bitte beachten:");
-  zeilen.push("- Die Durchfahrtshöhe bei jedem Vorschlag beim Haus erfragen. Sie steht");
-  zeilen.push("  in keiner Ausstattungsliste, auch nicht wenn dort \"Privatparkplatz\"");
-  zeilen.push("  angegeben ist. Nur eine genannte Zahl in Metern zählt.");
   zeilen.push("- Drei Vorschläge reichen, mit Entfernung zur Baustelle, Preis je Zimmer");
   zeilen.push("  und Nacht, Bewertung und Buchungslink.");
+  zeilen.push("- Ob der Parkplatz für das Fahrzeug taugt, prüfe ich selbst beim Haus.");
 
   stelle("auftragText").textContent = zeilen.filter(z => z !== "").join("\n")
     .replace(/\n(Bitte beachten:)/, "\n\n$1");
@@ -583,8 +511,7 @@ function auftragZeichnen(){
   stelle("befehlText").textContent =
     `python3 werkzeuge/hotelsuche.py auftrag ${bst.kuerzel} ` +
     `${alsDatum(vonIso)} ${alsDatum(bisIso)}` +
-    (kuerzelListe ? ` --monteure ${kuerzelListe}` : ` --zimmer ${zimmer}`) +
-    (wahl ? ` --fahrzeug ${wahl.split("|")[0]}` : "");
+    (kuerzelListe ? ` --monteure ${kuerzelListe}` : ` --zimmer ${zimmer}`);
 
   const ziel = bookingLink();
   const knopf = stelle("zuBooking");
@@ -592,7 +519,7 @@ function auftragZeichnen(){
   stelle("bookingUrl").textContent = ziel || "";
 
   stelle("ergebnis").style.display = "";
-  warnungenZeichnen(bst, vonIso, bisIso, besetzung, fahrzeug);
+  warnungenZeichnen(bst, vonIso, bisIso, besetzung);
 }
 
 function bookingLink(){
@@ -612,6 +539,11 @@ function bookingLink(){
     no_rooms: String(zimmer),
     group_adults: String(zimmer),
     group_children: "0",
+    // Booking übernimmt die Belegung mal aus group_*, mal aus req_*. Beide
+    // zu setzen schadet nicht und trifft eher.
+    req_adults: String(zimmer),
+    req_children: "0",
+    req_rooms: String(zimmer),
     selected_currency: "EUR",
     lang: "de-de",
     // Bookings eigene Sortierung nach Preis-Leistung
@@ -627,22 +559,8 @@ function bookingLink(){
     + "&nflt=" + encodeURIComponent(filter.join(";"));
 }
 
-function warnungenZeichnen(bst, vonIso, bisIso, besetzung, fahrzeug){
+function warnungenZeichnen(bst, vonIso, bisIso, besetzung){
   const meldungen = [];
-
-  // Bekannte zu niedrige Häuser an diesem Ort
-  const hoehen = alleHoehen();
-  const zuNiedrig = Object.keys(hoehen)
-    .map(id => hoehen[id])
-    .filter(h => zahlOder(h.meter, 99) < fahrzeug);
-  if(zuNiedrig.length){
-    const eins = zuNiedrig.length === 1;
-    meldungen.push(`<p class="hinweis"><span class="fahne f-warn">Höhe</span>
-      Im Verzeichnis ${eins ? "steht ein Haus" : `stehen ${zuNiedrig.length} Häuser`}
-      mit zu niedriger Durchfahrt für ${fahrzeug.toFixed(2)} m.
-      ${eins ? "Es wird" : "Sie werden"} beim Auswerten aussortiert, falls
-      ${eins ? "es" : "sie"} in den Treffern auftauch${eins ? "t" : "en"}.</p>`);
-  }
 
   // Doppelt verplante Monteure
   const kollisionen = [];
@@ -670,12 +588,8 @@ function warnungenZeichnen(bst, vonIso, bisIso, besetzung, fahrzeug){
       Hier war schon ${text(letzte.hotel)}${letzte.fazit ? ": " + text(letzte.fazit) : ""}.</p>`);
   }
 
-  meldungen.push(`<p class="hinweis">Die Durchfahrtshöhe steht in keiner
-    Ausstattungsliste. Vor dem Buchen bei jedem Haus erfragen, auch wenn
-    &bdquo;Privatparkplatz&ldquo; dabeisteht.</p>`);
-
   stelle("warnListe").innerHTML = meldungen.join("");
-  stelle("warnungen").style.display = "";
+  stelle("warnungen").style.display = meldungen.length ? "" : "none";
 }
 
 /* --- Belegung ----------------------------------------------------------- */
@@ -713,33 +627,6 @@ function belegungZeichnen(){
 }
 
 /* --- Hotels ------------------------------------------------------------- */
-
-function hoehenZeichnen(){
-  const hoehen = alleHoehen();
-  const ids = Object.keys(hoehen);
-  if(!ids.length){
-    stelle("hoehenListe").innerHTML = '<p class="leer">Noch nichts erfragt.</p>';
-    return;
-  }
-  const zeilen = ids.map(id => {
-    const h = hoehen[id];
-    const meter = zahlOder(h.meter, 0);
-    const passt = meter >= SPRINTER
-      ? '<span class="fahne f-gut">Sprinter passt</span>'
-      : (meter >= 2.35
-        ? '<span class="fahne f-warn">nur ohne Hochdach</span>'
-        : '<span class="fahne f-stop">zu niedrig</span>');
-    return `<tr>
-      <td>${text(h.name || id)}</td>
-      <td>${meter.toFixed(2)} m</td>
-      <td>${passt}</td>
-      <td><small>${text(h.geprueft_am || "")}</small></td>
-    </tr>`;
-  });
-  stelle("hoehenListe").innerHTML = `<div class="tabellenrahmen"><table>
-    <thead><tr><th>Hotel</th><th>Durchfahrt</th><th>Urteil</th><th>Geprüft</th></tr></thead>
-    <tbody>${zeilen.join("")}</tbody></table></div>`;
-}
 
 function haeuserZeichnen(){
   const nachHotel = {};
@@ -791,12 +678,11 @@ function stammZeichnen(){
     }).join("")}</tbody></table></div>`;
 
   stelle("stammMont").innerHTML = `<div class="tabellenrahmen"><table>
-    <thead><tr><th>Kürzel</th><th>Name</th><th>Fahrzeug</th><th>Höhe</th></tr></thead>
+    <thead><tr><th>Kürzel</th><th>Name</th><th>Fahrzeug</th></tr></thead>
     <tbody>${alleLeute().map(m => `<tr>
       <td><strong>${text(m.kuerzel)}</strong></td>
       <td>${text(m.name)}${m.hinweis ? `<br><small>${text(m.hinweis)}</small>` : ""}</td>
       <td>${text(m.fahrzeug)}</td>
-      <td>${m.fahrzeughoehe_m ? Number(m.fahrzeughoehe_m).toFixed(2) + " m" : "-"}</td>
     </tr>`).join("")}</tbody></table></div>`;
 
   const zeigen = [
@@ -871,22 +757,6 @@ function buchungenExportieren(){
   ausgeben("bAusgabe", zeilen.join("\n") + "\n");
 }
 
-function hoehenExportieren(){
-  const hoehen = alleHoehen();
-  const ids = Object.keys(hoehen);
-  if(!ids.length){ alert("Nichts zu exportieren."); return; }
-  const zeilen = ["# Aus dem Cockpit exportiert. Gehört nach hotels/hoehen.yaml.", "hoehen:"];
-  ids.sort().forEach(id => {
-    const h = hoehen[id];
-    zeilen.push(`  ${id}:`);
-    zeilen.push(`    name: ${yamlZeichenkette(h.name || "")}`);
-    zeilen.push(`    meter: ${zahlOder(h.meter, 0)}`);
-    zeilen.push(`    geprueft_am: ${yamlZeichenkette(h.geprueft_am || "")}`);
-    zeilen.push(`    quelle: ${yamlZeichenkette(h.quelle || "Rückfrage beim Haus")}`);
-  });
-  ausgeben("hAusgabe", zeilen.join("\n") + "\n");
-}
-
 function eigeneLeuteZeichnen(){
   const behaelter = stelle("mEigene");
   if(!eigeneLeute.length){ behaelter.innerHTML = ""; return; }
@@ -896,7 +766,7 @@ function eigeneLeuteZeichnen(){
     <tbody>${eigeneLeute.map((m, i) => `<tr>
       <td><strong>${text(m.kuerzel)}</strong></td>
       <td>${text(m.name)}</td>
-      <td>${text(m.fahrzeug)}${m.fahrzeughoehe_m ? ` (${Number(m.fahrzeughoehe_m).toFixed(2)} m)` : ""}</td>
+      <td>${text(m.fahrzeug)}</td>
       <td><button class="leise" data-weg="${i}">Entfernen</button></td>
     </tr>`).join("")}</tbody></table></div>`;
   behaelter.querySelectorAll("[data-weg]").forEach(knopf => {
@@ -940,30 +810,15 @@ function monteurAnlegen(){
     return;
   }
 
-  const wahl = stelle("mFahrzeug").value;
-  let fahrzeug = "", hoehe = null;
-  if(wahl === "eigene"){
-    hoehe = zahlOder(stelle("mHoehe").value, 0) || null;
-    fahrzeug = hoehe ? `eigene Angabe` : "";
-    if(!hoehe){ alert("Bitte die Höhe in Meter eintragen."); return; }
-  }else if(wahl){
-    const [bezeichnung, meter] = wahl.split("|");
-    fahrzeug = bezeichnung;
-    hoehe = zahlOder(meter, null);
-  }
-
   eigeneLeute.push({
     kuerzel: kuerzel,
     name: name,
-    fahrzeug: fahrzeug,
-    fahrzeughoehe_m: hoehe,
+    fahrzeug: stelle("mFahrzeug").value.trim(),
     hinweis: stelle("mHinweis").value.trim(),
     buero: false
   });
   merkeSchreiben("kpc_hotel_monteure", eigeneLeute);
-  ["mKuerzel","mName","mHoehe","mHinweis"].forEach(id => { stelle(id).value = ""; });
-  stelle("mFahrzeug").value = "";
-  stelle("mEigeneHoehe").hidden = true;
+  ["mKuerzel","mName","mFahrzeug","mHinweis"].forEach(id => { stelle(id).value = ""; });
   leuteNeuZeichnen();
 }
 
@@ -974,7 +829,6 @@ function monteureExportieren(){
     zeilen.push(`  - kuerzel: ${yamlZeichenkette(m.kuerzel)}`);
     zeilen.push(`    name: ${yamlZeichenkette(m.name || "")}`);
     zeilen.push(`    fahrzeug: ${yamlZeichenkette(m.fahrzeug || "")}`);
-    zeilen.push(`    fahrzeughoehe_m:${m.fahrzeughoehe_m ? " " + Number(m.fahrzeughoehe_m) : ""}`);
     if(m.buero) zeilen.push(`    buero: true`);
     zeilen.push(`    hinweis: ${yamlZeichenkette(m.hinweis || "")}`);
   });
@@ -1018,34 +872,14 @@ document.querySelectorAll("[data-schliessen]").forEach(knopf => {
   });
 });
 
-["bst","von","bis","fahrzeug"].forEach(id =>
+["bst","von","bis"].forEach(id =>
   stelle(id).addEventListener("change", auftragZeichnen));
 
-stelle("mFahrzeug").addEventListener("change", () => {
-  stelle("mEigeneHoehe").hidden = stelle("mFahrzeug").value !== "eigene";
-});
 stelle("mSpeichern").addEventListener("click", monteurAnlegen);
 stelle("mExport").addEventListener("click", monteureExportieren);
 
 stelle("bSpeichern").addEventListener("click", jaEintragen);
 stelle("bExport").addEventListener("click", buchungenExportieren);
-stelle("hExport").addEventListener("click", hoehenExportieren);
-
-stelle("hSpeichern").addEventListener("click", () => {
-  const id = stelle("hId").value.trim();
-  const meter = zahlOder(stelle("hMeter").value, 0);
-  if(!id || !meter){ alert("Hotel-ID und Meter werden gebraucht."); return; }
-  eigeneHoehen[id] = {
-    name: stelle("hName").value.trim(),
-    meter: meter,
-    geprueft_am: alsDatum(new Date().toISOString().slice(0,10)),
-    quelle: "Rückfrage beim Haus"
-  };
-  merkeSchreiben("kpc_hotel_hoehen", eigeneHoehen);
-  stelle("hId").value = ""; stelle("hName").value = ""; stelle("hMeter").value = "";
-  hoehenZeichnen();
-  auftragZeichnen();
-});
 
 /* --- Start -------------------------------------------------------------- */
 
@@ -1055,7 +889,6 @@ leuteFuellen(stelle("leute"), "suche");
 leuteFuellen(stelle("bLeute"), "buchung");
 eigeneLeuteZeichnen();
 belegungZeichnen();
-hoehenZeichnen();
 haeuserZeichnen();
 stammZeichnen();
 
