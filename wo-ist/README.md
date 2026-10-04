@@ -46,13 +46,15 @@ Zwei Geräte (z. B. zwei Handys oder Handy und iPad) können dieselben Einträge
 
 Ohne Anmeldung bleibt alles wie bisher nur auf dem Gerät. Der Bereich „Gemeinsam nutzen“ erscheint erst, wenn die App mit einem Supabase-Projekt verbunden ist.
 
-### Einrichtung (einmalig)
+### Einrichtung
 
-1. Auf supabase.com ein neues Projekt anlegen, Region **Frankfurt (eu-central-1)**.
-2. Im SQL-Editor den Inhalt von `supabase/schema.sql` ausführen. Das legt die Tabelle `eintraege`, den privaten Speicher `fotos` und die Zugriffsregeln an: Jedes Konto sieht nur seine eigenen Einträge und Fotos.
-3. Unter Project Settings → API die **Project URL** und den **Publishable Key** kopieren und oben in `app.js` bei `ABGLEICH` eintragen.
-4. Unter Authentication → Sign In / Providers → Email entscheiden, ob neue Konten ihre E-Mail bestätigen müssen. Für einen privaten Haushalt kann „Confirm email“ aus bleiben; dann klappt die Anmeldung sofort.
-5. In `service-worker.js` die Konstante `CACHE` hochzählen und neu veröffentlichen.
+Das Supabase-Projekt `wo-ist` (Region Frankfurt, eu-central-1) ist angelegt, `supabase/schema.sql` eingespielt, URL und Publishable Key stehen oben in `app.js` bei `ABGLEICH`. Jedes Konto sieht nur seine eigenen Einträge und Fotos (geprüft mit zwei Testkonten).
+
+Offen ist nur eine Einstellung im Supabase-Dashboard: Authentication → Sign In / Providers → Email → „Confirm email“. Ist sie an, muss die E-Mail beim ersten Anlegen des Kontos per Link bestätigt werden. Für einen privaten Haushalt kann sie aus bleiben, dann klappt die Anmeldung sofort.
+
+Der Abgleich holt jedes Mal die komplette Liste des Haushalts und vergleicht über das Änderungsdatum. Für ein paar hundert Einträge sind das wenige Kilobyte; fehlende Fotos werden dabei automatisch nachgeladen.
+
+Für ein anderes Projekt: `supabase/schema.sql` im SQL-Editor ausführen, URL und Publishable Key in `app.js` eintragen, `CACHE` in `service-worker.js` hochzählen.
 
 Der Publishable Key darf öffentlich im Code stehen, geschützt sind die Daten über die Zugriffsregeln (Row Level Security). Ein kostenloses Supabase-Projekt wird nach einer Woche ohne Zugriff pausiert. Die App bleibt dann lokal nutzbar, gleicht aber erst wieder ab, wenn das Projekt im Supabase-Dashboard fortgesetzt wurde.
 

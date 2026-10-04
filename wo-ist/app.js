@@ -2,7 +2,7 @@
 'use strict';
 
 /* Gemeinsam nutzen: Projekt-URL und Publishable Key aus Supabase eintragen. Leer = nur dieses Gerät. */
-const ABGLEICH = { url: '', schluessel: '' };
+const ABGLEICH = { url: 'https://uvvqgwbshdtwlveopgvn.supabase.co', schluessel: 'sb_publishable_PHmilLbfbsV7P6iGzlQEvg_WGlLcsRR' };
 const SUPABASE_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js';
 const SUPABASE_SRI = 'sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok';
 
@@ -909,13 +909,12 @@ function start() {
   async function uebernimm(z, lokal) {
     if (z.geloescht) {
       if (lokal) await entferne(z.id);
-      return true;
+      return;
     }
     let foto = lokal && lokal.fotoPfad === z.foto_pfad ? lokal.foto : null;
-    let geklappt = true;
     if (z.foto_pfad && !foto) {
       const { data, error } = await sb.storage.from('fotos').download(z.foto_pfad);
-      if (!error && data) foto = await fotoAblegen(data); else geklappt = false;
+      if (!error && data) foto = await fotoAblegen(data);
     }
     await lege({
       id: z.id,
@@ -929,7 +928,6 @@ function start() {
       geaendert: z.geaendert,
       offen: false
     });
-    return geklappt;
   }
 
   async function schiebe(e) {
@@ -966,21 +964,17 @@ function start() {
     document.documentElement.dataset.abgleich = 'laeuft';
     $('#teilen-stand').textContent = 'Gleiche gerade ab …';
     try {
-      const cursor = merke.lies('abgleich') || '1970-01-01T00:00:00.000Z';
-      const ab = new Date(Date.parse(cursor) - 5 * 60e3).toISOString();
-      const { data: zeilen, error } = await sb.from('eintraege').select('*').gt('server_zeit', ab).order('server_zeit');
+      const { data: zeilen, error } = await sb.from('eintraege').select('*').order('geaendert');
       if (error) throw error;
-      let neuster = Date.parse(cursor), vollstaendig = true, geaendert = false;
+      let geaendert = false;
       for (const z of zeilen || []) {
-        neuster = Math.max(neuster, Date.parse(z.server_zeit));
         const lokal = await hole(z.id);
         if (lokal && lokal.offen && Date.parse(lokal.geaendert) >= Date.parse(z.geaendert)) continue;
         if (lokal && !lokal.offen && Date.parse(lokal.geaendert) === Date.parse(z.geaendert) && lokal.fotoPfad === (z.foto_pfad || null)) continue;
-        if (!(await uebernimm(z, lokal))) vollstaendig = false;
+        await uebernimm(z, lokal);
         geaendert = true;
       }
       for (const e of (await alleRoh()).filter(x => x.offen)) await schiebe(e);
-      if (vollstaendig) merke.setze('abgleich', new Date(neuster).toISOString());
       const uhr = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
       $('#teilen-stand').textContent = `Zuletzt abgeglichen um ${uhr} Uhr.`;
       document.documentElement.dataset.abgleich = 'fertig';
@@ -1020,7 +1014,6 @@ function start() {
       return teilenMeldung('Ohne Internet kann ich mich gerade nicht anmelden.');
     }
     $('#teilen-pw').value = '';
-    merke.setze('abgleich', '');
     for (const e of await alleRoh()) if (!e.offen) await lege({ ...e, offen: true, geaendert: e.geaendert || e.erstellt });
     zeigeTeilen();
     ton(990, 200);
@@ -1031,7 +1024,6 @@ function start() {
   async function abmelden() {
     if (sb) await sb.auth.signOut().catch(() => {});
     sitzung = null;
-    merke.setze('abgleich', '');
     zeigeTeilen();
     ton(440);
     teilenMeldung('Abgemeldet. Die Einträge bleiben auf diesem Gerät.');

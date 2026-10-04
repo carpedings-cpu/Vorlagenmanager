@@ -100,6 +100,7 @@ async function neueSeite(optionen, vorbereitung) {
   await kontext.route(FUSE_URL, r => r.fulfill({
     path: FUSE_DATEI, contentType: 'text/javascript', headers: { 'Access-Control-Allow-Origin': '*' }
   }));
+  await kontext.addInitScript(() => { window.WOISTS_ABGLEICH = { url: '' }; });
   if (vorbereitung) await kontext.addInitScript(vorbereitung);
   const seite = await kontext.newPage();
   await seite.goto(basis);
@@ -497,7 +498,7 @@ test('Offline: App und Fuse.js kommen aus dem Service Worker', async () => {
   const { kontext, seite } = await neueSeite(android, ATTRAPPE);
   await seite.evaluate(() => navigator.serviceWorker.ready);
   await seite.waitForFunction(async () => {
-    const c = await caches.open('wo-ists-v4');
+    const c = await caches.open('wo-ists-v5');
     return (await c.keys()).length >= 10;
   });
   await kontext.setOffline(true);

@@ -1,6 +1,7 @@
 -- Wo ist's? · Autorin: Diana Ziegler
 -- Gemeinsamer Haushalt: beide Geräte melden sich mit demselben Konto an.
 -- Jede Zeile gehört dem Konto, das sie angelegt hat (haushalt = auth.uid()).
+-- Projekt: wo-ist (uvvqgwbshdtwlveopgvn), Region eu-central-1.
 
 create table if not exists public.eintraege (
   id text primary key,
@@ -13,10 +14,10 @@ create table if not exists public.eintraege (
   verlauf jsonb not null default '[]'::jsonb,
   geaendert timestamptz not null default now(),
   geloescht boolean not null default false,
-  server_zeit timestamptz not null default now()
+  server_zeit timestamptz not null default now()  -- Eingang beim Server, wird von der App nicht ausgewertet
 );
 
-create index if not exists eintraege_haushalt_server_zeit on public.eintraege (haushalt, server_zeit);
+create index if not exists eintraege_haushalt on public.eintraege (haushalt);
 
 alter table public.eintraege enable row level security;
 
@@ -28,22 +29,6 @@ create policy "Haushalt ändert eigene Einträge" on public.eintraege
   for update to authenticated using (haushalt = (select auth.uid())) with check (haushalt = (select auth.uid()));
 create policy "Haushalt löscht eigene Einträge" on public.eintraege
   for delete to authenticated using (haushalt = (select auth.uid()));
-
-create or replace function public.setze_server_zeit()
-returns trigger
-language plpgsql
-set search_path = ''
-as $$
-begin
-  new.server_zeit := now();
-  return new;
-end;
-$$;
-
-drop trigger if exists eintraege_server_zeit on public.eintraege;
-create trigger eintraege_server_zeit
-  before insert or update on public.eintraege
-  for each row execute function public.setze_server_zeit();
 
 insert into storage.buckets (id, name, public)
 values ('fotos', 'fotos', false)

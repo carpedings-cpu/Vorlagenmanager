@@ -1,7 +1,7 @@
 /* Wo ist's? · Autorin: Diana Ziegler */
 'use strict';
 
-const CACHE = 'wo-ists-v4';
+const CACHE = 'wo-ists-v5';
 const FUSE = 'https://cdn.jsdelivr.net/npm/fuse.js@7.1.0/dist/fuse.min.js';
 const SUPABASE_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js';
 const DATEIEN = [
