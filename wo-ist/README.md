@@ -34,9 +34,11 @@ Wichtig fürs iPhone: Vom Home-Bildschirm aus erlaubt Apple keine Spracherkennun
 
 Gibt es den Gegenstand schon, fragt die App nach („Meinen Sie den Ersatzschlüssel fürs Auto von vorher?“). Bei **Ja** wird der alte Ort im Verlauf gemerkt.
 
-**Wo ist …?** (blau): Antippen und fragen, zum Beispiel „Wo ist der Autoschlüssel?“. Die App zeigt den Ort groß, mit Foto, und liest ihn vor. Darunter steht klein, wo der Gegenstand vorher lag. Passen mehrere Einträge, erscheinen bis zu drei große Karten zur Auswahl.
+**Wo ist …?** (blau): Antippen und fragen, zum Beispiel „Wo ist der Autoschlüssel?“. Die App zeigt den Ort groß, mit Foto, und liest ihn vor. Darunter steht klein, wo der Gegenstand vorher lag. Passen mehrere Einträge, erscheinen bis zu drei große Karten zur Auswahl. Mit **Nochmal vorlesen** wiederholt die App die Antwort. Mit **Liegt jetzt woanders** sagt man nur den neuen Ort („Im Küchenschrank“), der alte wandert in den Verlauf.
 
-**Alle Einträge** (Link unten): Liste mit Löschen-Knopf und Rückfrage. Dort auch **Sicherung speichern** und **Sicherung laden** (JSON-Datei mit allen Einträgen und Fotos). Eine Sicherung ab und zu, etwa per E-Mail an sich selbst, schützt vor Datenverlust bei Handywechsel oder -defekt.
+Die Suche kennt gängige andere Wörter für dasselbe Ding: Wer nach dem Portemonnaie fragt, findet auch die Geldbörse, Medikamente finden Tabletten, Telefon findet Handy.
+
+**Alle Einträge** (Link unten): Liste mit Löschen-Knopf und Rückfrage. Dort auch **Sicherung speichern** und **Sicherung laden** (JSON-Datei mit allen Einträgen und Fotos). Eine Sicherung ab und zu, etwa per E-Mail an sich selbst, schützt vor Datenverlust bei Handywechsel oder -defekt. Nach 20 neuen Einträgen oder 30 Tagen ohne Sicherung fragt die App auf dem Startbildschirm einmal nach. „Später“ verschiebt die Frage um eine Woche.
 
 ## Datenschutz
 
@@ -82,9 +84,9 @@ npm test              # Satz zerlegen, Suche, Kontrast
 npm run test:browser  # Bedienung in Chromium, Android- und iPhone-Emulation
 ```
 
-`npm test` prüft das Zerlegen an 29 deutschen Beispielsätzen (darunter „hab den Pass in die Schublade getan“, „Brille liegt auf dem Nachttisch“, „Äh, also die Brille ist auf dem Klavier.“), die Suche mit und ohne Fuse.js, die Rückfragen und alle Farbpaare auf mindestens 7:1.
+`npm test` prüft das Zerlegen an 29 deutschen Beispielsätzen und 8 reinen Ortsangaben (darunter „hab den Pass in die Schublade getan“, „Brille liegt auf dem Nachttisch“, „Äh, also die Brille ist auf dem Klavier.“), die Suche mit und ohne Fuse.js samt Synonymen, die Rückfragen und alle Farbpaare auf mindestens 7:1.
 
-`npm run test:browser` spielt die Bedienung in Chromium durch: Erkennung der Sprach-Schnittstelle (Android-Chrome, Safari im Browser, Safari vom Home-Bildschirm mit Fallback, Browser ohne Schnittstelle, verweigertes Mikrofon), Ablegen, Rückfrage bei gleichem Gegenstand, Verlauf, Foto auf 1200 px und JPEG, mehrere Treffer, kein Treffer, Löschen mit Rückfrage, Sicherung und Laden, Schriftgrößen, 360 px Breite und Offline-Start. Die Spracherkennung selbst wird dabei durch eine Attrappe ersetzt.
+`npm run test:browser` spielt die Bedienung in Chromium durch: Erkennung der Sprach-Schnittstelle (Android-Chrome, Safari im Browser, Safari vom Home-Bildschirm mit Fallback, Browser ohne Schnittstelle, verweigertes Mikrofon), Ablegen, Rückfrage bei gleichem Gegenstand, Verlauf, Foto auf 1200 px und JPEG, mehrere Treffer, kein Treffer, Löschen mit Rückfrage, Sicherung und Laden, Nochmal vorlesen, Liegt jetzt woanders, Erinnerung an die Sicherung, Schriftgrößen, 360 px Breite und Offline-Start. Die Spracherkennung selbst wird dabei durch eine Attrappe ersetzt.
 
 ### Noch auf echten Geräten zu prüfen
 

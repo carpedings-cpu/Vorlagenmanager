@@ -40,12 +40,25 @@ for (const [mitFuse, titel] of [[true, 'mit Fuse.js'], [false, 'ohne Fuse.js (No
     });
 
     test('unsicher gespeicherte Sätze sind auffindbar', () => {
-      assert.deepEqual(namen('Wo ist der Zweitschlüssel?'), ['Zweitschlüssel hat die Nachbarin']);
+      assert.equal(namen('Wo ist der Zweitschlüssel?')[0], 'Zweitschlüssel hat die Nachbarin');
+      assert.deepEqual(namen('Wo ist das, was die Nachbarin hat?'), ['Zweitschlüssel hat die Nachbarin']);
     });
 
     test('mehrere ähnliche Treffer, höchstens drei', () => {
       const r = namen('Wo ist der Schlüssel?');
       assert.ok(r.length >= 2 && r.length <= 3, r.join(' | '));
+    });
+
+    test('Synonyme', () => {
+      const mehr = [...liste,
+        { id: 'g', gegenstand: 'Geldbörse', ort: 'in der Handtasche', originalsatz: 'Geldbörse ist in der Handtasche', verlauf: [] },
+        { id: 't', gegenstand: 'Tabletten', ort: 'im Bad', originalsatz: 'Die Tabletten liegen im Bad', verlauf: [] }];
+      const n = f => app.suche(f, mehr).map(e => e.gegenstand);
+      assert.deepEqual(n('Wo ist mein Portemonnaie?'), ['Geldbörse']);
+      assert.deepEqual(n('Wo ist der Geldbeutel?'), ['Geldbörse']);
+      assert.deepEqual(n('Wo sind meine Medikamente?'), ['Tabletten']);
+      assert.deepEqual(n('Wo ist das Telefon?'), ['Ladekabel vom Handy']);
+      assert.ok(n('Wo ist mein Personalausweis?').includes('Pass'));
     });
 
     test('kein Treffer', () => {
@@ -61,6 +74,10 @@ test.describe('Doppelte Gegenstände', () => {
     assert.equal(app.findeDoppelt('Ersatzschlüssel fürs Auto', liste).id, '0');
     assert.equal(app.findeDoppelt('Ersatzschlüssel', liste).id, '0');
     assert.equal(app.findeDoppelt('Fernbedienung', liste).id, '6');
+  });
+  test('erkennt Synonyme als denselben Gegenstand', () => {
+    const mehr = [...liste, { id: 'g', gegenstand: 'Geldbörse', ort: 'in der Handtasche', originalsatz: 'Geldbörse ist in der Handtasche', verlauf: [] }];
+    assert.equal(app.findeDoppelt('Geldbeutel', mehr).id, 'g');
   });
   test('fragt nicht bei nur entfernt Ähnlichem', () => {
     assert.equal(app.findeDoppelt('Handy', liste), null);

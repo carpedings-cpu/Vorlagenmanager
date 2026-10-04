@@ -91,6 +91,21 @@ button:active { transform: scale(0.98); }
   text-underline-offset: 4px;
 }
 
+.erinnerung {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 3px solid var(--blau);
+  border-radius: 20px;
+  background: var(--karte);
+  font-size: 22px;
+  font-weight: 600;
+}
+.erinnerung[hidden] { display: none; }
+.paar { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.paar .knopf { min-height: 72px; font-size: 22px; padding: 12px; }
+
 .klein { font-size: 22px; color: var(--leise); }
 .hinweis { font-size: 26px; font-weight: 600; }
 .status { font-size: 32px; font-weight: 700; text-align: center; }

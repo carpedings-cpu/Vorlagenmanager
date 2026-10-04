@@ -126,6 +126,24 @@ function zerlege(satz) {
   };
 }
 
+function nurOrt(satz) {
+  const voll = zerlege(satz);
+  if (voll.sicher) return voll.ort;
+  const t = ohneSchluss(String(satz || '').replace(/\s+/g, ' ').trim()).split(' ').filter(w => sauber(w));
+  const p = t.findIndex(w => PRAEP.has(klein(w)));
+  if (p < 0) return t.join(' ');
+  const ortT = t.slice(p);
+  while (ortT.length > 1 && (ORT_ENDE.has(klein(ortT[ortT.length - 1])) || istPartizip(ortT[ortT.length - 1]))) ortT.pop();
+  const w = zuDativ(ortT, true);
+  w[0] = w[0].toLowerCase();
+  return ohneSchluss(w.join(' '));
+}
+
+function umlegeSatz(e, ort) {
+  const g = zerlege(e.originalsatz).genus;
+  return g ? `${NOM[g]} ${e.gegenstand} ${g === 'p' ? 'liegen' : 'liegt'} ${ort}` : `${e.gegenstand} liegt ${ort}`;
+}
+
 /* ---------- Suchen ---------- */
 
 const FRAGE_STOPP = new Set(['wo', 'wohin', 'woanders', 'ist', 'sind', 'liegt', 'liegen', 'steht', 'stehen', 'hängt', 'hängen',
@@ -183,18 +201,55 @@ function wortteilScore(q, e) {
   return anteil >= 0.4 ? (1 - anteil) * 0.5 : null;
 }
 
+const SYNONYM_GRUPPEN = [
+  'portemonnaie portmonee portemonee geldbörse geldbeutel brieftasche geldtasche börse',
+  'handy telefon smartphone mobiltelefon iphone',
+  'fernbedienung fernsteuerung',
+  'brille lesebrille sehbrille',
+  'schlüssel schlüsselbund',
+  'ersatzschlüssel zweitschlüssel reserveschlüssel',
+  'autoschlüssel fahrzeugschlüssel',
+  'hausschlüssel wohnungsschlüssel haustürschlüssel',
+  'ausweis personalausweis perso reisepass pass',
+  'führerschein fahrerlaubnis',
+  'krankenkassenkarte versichertenkarte gesundheitskarte kassenkarte',
+  'bankkarte girokarte kreditkarte',
+  'impfpass impfausweis',
+  'tabletten medikamente pillen arznei medizin',
+  'ladekabel ladegerät netzteil',
+  'dokumente unterlagen papiere akten',
+  'hörgerät hörgeräte hörhilfe',
+  'gebiss zahnprothese prothese',
+  'regenschirm schirm',
+  'uhr armbanduhr',
+  'kopfhörer ohrhörer',
+  'tasche handtasche',
+  'batterien batterie akkus',
+  'taschenlampe lampe',
+  'werkzeug werkzeugkasten',
+  'fotos fotoalbum bilder',
+  'weihnachtsdeko weihnachtssachen weihnachtsschmuck christbaumschmuck'
+];
+const SYNONYME = new Map();
+for (const g of SYNONYM_GRUPPEN) {
+  const worte = g.split(' ');
+  for (const w of worte) SYNONYME.set(w, [...(SYNONYME.get(w) || []), ...worte.filter(x => x !== w)]);
+}
+
 function suche(frage, liste) {
   const q = frageBereinigen(frage);
   if (!q || !liste.length) return [];
   const exakt = liste.filter(e => normal(e.gegenstand) === q);
   if (exakt.length === 1) return exakt;
   const keys = [{ name: 'gegenstand', weight: 2 }, { name: 'originalsatz', weight: 1 }];
-  const teile = new Set([q, ...q.split(' ').filter(w => w.length >= 4)]);
+  const teile = new Map([q, ...q.split(' ').filter(w => w.length >= 4)].map(t => [t, 0]));
+  for (const w of q.split(' ')) for (const syn of SYNONYME.get(w) || []) if (!teile.has(syn)) teile.set(syn, 0.05);
   const best = new Map();
-  for (const teil of teile) {
-    for (const r of fuseSuche(liste, teil, keys, 0.4)) {
+  for (const [teil, malus] of teile) {
+    for (const r of fuseSuche(liste, teil, keys, malus ? 0.25 : 0.4)) {
+      const score = r.score + malus;
       const alt = best.get(r.item.id);
-      if (!alt || r.score < alt.score) best.set(r.item.id, r);
+      if (!alt || score < alt.score) best.set(r.item.id, { item: r.item, score });
     }
   }
   for (const e of liste) {
@@ -211,7 +266,8 @@ function suche(frage, liste) {
 function findeDoppelt(gegenstand, liste) {
   const q = normal(gegenstand);
   if (!q || !liste.length) return null;
-  const gleich = liste.find(e => normal(e.gegenstand) === q);
+  const gleich = liste.find(e => normal(e.gegenstand) === q) ||
+    liste.find(e => (SYNONYME.get(q) || []).includes(normal(e.gegenstand)));
   if (gleich) return gleich;
   const r = fuseSuche(liste, q, ['gegenstand'], 0.3)[0];
   const laenge = r ? Math.min(q.length, normal(r.item.gegenstand).length) / Math.max(q.length, normal(r.item.gegenstand).length) : 0;
@@ -248,7 +304,7 @@ function datum(iso) {
 }
 
 if (typeof module === 'object' && module.exports) {
-  module.exports = { zerlege, frageBereinigen, suche, findeDoppelt, antwortSatz, rueckfrage, vorherSatz };
+  module.exports = { zerlege, nurOrt, umlegeSatz, frageBereinigen, suche, findeDoppelt, antwortSatz, rueckfrage, vorherSatz };
 }
 
 /* ---------- Speicher (IndexedDB) ---------- */
@@ -308,7 +364,7 @@ function start() {
 
   let hoerenGeht = !!SR && !(IOS && STANDALONE);
   let modus = 'ablegen', erkennung = null, letzter = null, offen = null, audio = null, stimme = null, entsperrt = false;
-  let zuLoeschen = null, fotoUrl = null, trefferUrl = null;
+  let zuLoeschen = null, fotoUrl = null, trefferUrl = null, umlegen = null;
 
   const el = (tag, klasse, text) => {
     const n = document.createElement(tag);
@@ -366,7 +422,27 @@ function start() {
 
   /* Bildschirme */
 
+  const merke = {
+    lies: k => { try { return localStorage.getItem('woists.' + k); } catch (_) { return null; } },
+    setze: (k, v) => { try { localStorage.setItem('woists.' + k, v); } catch (_) { /* ohne Merker weiter */ } }
+  };
+
+  function pruefeErinnerung() {
+    const seit = Number(merke.lies('seit')) || 0;
+    const bezug = Date.parse(merke.lies('bezug') || '') || Date.now();
+    const spaeter = Date.parse(merke.lies('spaeter') || '') || 0;
+    const faellig = seit > 0 && Date.now() >= spaeter && (seit >= 20 || Date.now() - bezug >= 30 * 864e5);
+    $('#erinnerung').hidden = !faellig;
+  }
+
+  function gesichert() {
+    merke.setze('seit', '0');
+    merke.setze('bezug', new Date().toISOString());
+    $('#erinnerung').hidden = true;
+  }
+
   function zeige(name) {
+    if (name === 'start') pruefeErinnerung();
     document.querySelectorAll('.screen').forEach(s => { s.hidden = s.id !== 's-' + name; });
     if (name !== 'start' && !(history.state && history.state.tief)) history.pushState({ tief: true }, '');
     window.scrollTo(0, 0);
@@ -392,11 +468,20 @@ function start() {
     modus = m;
     entsperre();
     if ('speechSynthesis' in window) speechSynthesis.cancel();
-    const ablegen = m === 'ablegen';
-    $('#hoeren-titel').textContent = $('#tippen-titel').textContent = ablegen ? 'Was legen Sie wohin?' : 'Was suchen Sie?';
-    $('#hoeren-beispiel').textContent = $('#tippen-beispiel').textContent = ablegen
-      ? 'Zum Beispiel: „Die Brille liegt auf dem Nachttisch.“'
-      : 'Zum Beispiel: „Wo ist meine Brille?“';
+    const titel = { ablegen: 'Was legen Sie wohin?', suchen: 'Was suchen Sie?' };
+    const beispiel = {
+      ablegen: 'Zum Beispiel: „Die Brille liegt auf dem Nachttisch.“',
+      suchen: 'Zum Beispiel: „Wo ist meine Brille?“',
+      umlegen: 'Zum Beispiel: „Im Küchenschrank.“'
+    };
+    if (m === 'umlegen') {
+      const g = genusVon(umlegen);
+      titel.umlegen = g
+        ? `Wo ${g === 'p' ? 'liegen' : 'liegt'} ${NOM[g].toLowerCase()} ${umlegen.gegenstand} jetzt?`
+        : `Wo liegt ${umlegen.gegenstand} jetzt?`;
+    }
+    $('#hoeren-titel').textContent = $('#tippen-titel').textContent = titel[m];
+    $('#hoeren-beispiel').textContent = $('#tippen-beispiel').textContent = beispiel[m];
     document.body.dataset.modus = m;
     if (hoerenGeht) hoere(); else tippen();
   }
@@ -452,6 +537,7 @@ function start() {
   }
 
   function verarbeite(text) {
+    if (modus === 'umlegen') return woanders(text);
     return modus === 'ablegen' ? ablegen(text) : finde(text);
   }
 
@@ -469,6 +555,13 @@ function start() {
     sage(frage);
   }
 
+  async function woanders(text) {
+    const e = await hole(umlegen.id);
+    if (!e) return ablegen(text);
+    const ort = nurOrt(text);
+    return speichere({ gegenstand: e.gegenstand, ort, sicher: true }, umlegeSatz(e, ort), e);
+  }
+
   async function speichere(p, text, alt) {
     const jetzt = new Date().toISOString();
     const e = alt
@@ -483,6 +576,8 @@ function start() {
         }
       : { id: neueId(), gegenstand: p.gegenstand, ort: p.ort, originalsatz: text, foto: null, erstellt: jetzt, verlauf: [] };
     await lege(e);
+    merke.setze('seit', String((Number(merke.lies('seit')) || 0) + 1));
+    if (!merke.lies('bezug')) merke.setze('bezug', jetzt);
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
     letzter = { id: e.id, vorher: alt };
     const satz = 'Gespeichert: ' + (p.sicher ? `${e.gegenstand}, ${e.ort}` : ohneSchluss(text));
@@ -509,7 +604,7 @@ function start() {
       else await entferne(letzter.id);
       letzter = null;
     }
-    starte('ablegen');
+    starte(modus === 'umlegen' ? 'umlegen' : 'ablegen');
   }
 
   function ladeBild(datei) {
@@ -593,6 +688,16 @@ function start() {
     k.append(el('p', 'klein', 'Gespeichert am ' + datum(e.erstellt)));
     if (e.verlauf && e.verlauf[0]) k.append(el('p', 'klein', vorherSatz(e, e.verlauf[0])));
     box.append(k);
+    const vorlesen = el('button', 'knopf hell', 'Nochmal vorlesen');
+    vorlesen.type = 'button';
+    vorlesen.addEventListener('click', () => { ton(660, 80); sage(antwortSatz(e)); });
+    box.append(vorlesen);
+    if (e.ort) {
+      const weiter = el('button', 'knopf gruen', 'Liegt jetzt woanders');
+      weiter.type = 'button';
+      weiter.addEventListener('click', () => { umlegen = e; starte('umlegen'); });
+      box.append(weiter);
+    }
     zeige('treffer');
     ton(990, 200);
     sage(antwortSatz(e));
@@ -668,6 +773,7 @@ function start() {
     if (navigator.canShare && navigator.canShare({ files: [datei] })) {
       try {
         await navigator.share({ files: [datei], title: "Wo ist's? Sicherung" });
+        gesichert();
         return melde('Sicherung erstellt.');
       } catch (err) {
         if (err.name === 'AbortError') return melde('Sicherung abgebrochen.');
@@ -680,6 +786,7 @@ function start() {
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    gesichert();
     melde(`Sicherung gespeichert: ${liste.length === 1 ? 'ein Eintrag' : liste.length + ' Einträge'}.`);
   }
 
@@ -716,6 +823,13 @@ function start() {
 
   const klick = (s, fn) => $(s).addEventListener('click', fn);
   klick('#b-ablegen', () => starte('ablegen'));
+  klick('#b-erinnerung-ja', () => { entsperre(); sichern(); });
+  klick('#b-erinnerung-spaeter', () => {
+    merke.setze('spaeter', new Date(Date.now() + 7 * 864e5).toISOString());
+    $('#erinnerung').hidden = true;
+    ton(660, 80);
+    sage('In Ordnung. Ich erinnere Sie in einer Woche.');
+  });
   klick('#b-suchen', () => starte('suchen'));
   klick('#b-liste', () => { entsperre(); zeigeListe(); });
   klick('#b-fertig', () => {
@@ -745,6 +859,8 @@ function start() {
     else if (a === 'suchen') starte('suchen');
     else if (a === 'liste') zeigeListe();
   });
+
+  pruefeErinnerung();
 
   if ('speechSynthesis' in window) {
     waehleStimme();

@@ -269,6 +269,62 @@ test('Ablegen, Suchen, Verlauf, Foto, Liste, Sicherung', async () => {
   await kontext.close();
 });
 
+test('Nochmal vorlesen und Liegt jetzt woanders', async () => {
+  const { kontext, seite } = await neueSeite(android, ATTRAPPE);
+  await sprich(seite, '#b-ablegen', 'Den Ersatzschlüssel fürs Auto hab ich in die blaue Dose im Flurschrank getan');
+  await seite.locator('#s-ok').waitFor();
+  await seite.click('#b-stimmt');
+  await seite.waitForTimeout(200);
+
+  await sprich(seite, '#b-suchen', 'Wo ist der Autoschlüssel?');
+  await seite.locator('#s-treffer').waitFor();
+  await seite.evaluate(() => { window.__gesagt = []; });
+  await seite.getByRole('button', { name: 'Nochmal vorlesen' }).click();
+  assert.equal((await zuletztGesagt(seite)).text, 'Der Ersatzschlüssel fürs Auto ist in der blauen Dose im Flurschrank.');
+
+  await sprich(seite, 'text=Liegt jetzt woanders', 'In den Küchenschrank');
+  await seite.waitForFunction(() => /Küchenschrank/.test(document.querySelector('#ok-text').textContent));
+  assert.equal(await seite.textContent('#hoeren-titel'), 'Wo liegt der Ersatzschlüssel fürs Auto jetzt?');
+  assert.equal(await seite.textContent('#ok-text'), 'Gespeichert: Ersatzschlüssel fürs Auto, im Küchenschrank');
+  await seite.click('#b-stimmt');
+  await seite.waitForTimeout(200);
+
+  await sprich(seite, '#b-suchen', 'Wo ist der Ersatzschlüssel?');
+  await seite.locator('#s-treffer').waitFor();
+  assert.equal(await seite.textContent('#treffer .ort'), 'Im Küchenschrank');
+  assert.match(await seite.locator('#treffer .karte .klein').last().textContent(), /^Vorher lag er: in der blauen Dose im Flurschrank/);
+  assert.equal((await zuletztGesagt(seite)).text, 'Der Ersatzschlüssel fürs Auto ist im Küchenschrank.');
+  assert.equal(await seite.evaluate(async () => {
+    const d = await new Promise(ok => { const r = indexedDB.open('wo-ists'); r.onsuccess = () => ok(r.result); });
+    return new Promise(ok => { const r = d.transaction('eintraege').objectStore('eintraege').count(); r.onsuccess = () => ok(r.result); });
+  }), 1, 'kein zweiter Eintrag');
+  await kontext.close();
+});
+
+test('Erinnerung an die Sicherung', async () => {
+  const { kontext, seite } = await neueSeite(android, ATTRAPPE);
+  assert.equal(await seite.isVisible('#erinnerung'), false);
+  await seite.evaluate(() => {
+    localStorage.setItem('woists.seit', '3');
+    localStorage.setItem('woists.bezug', new Date(Date.now() - 31 * 864e5).toISOString());
+  });
+  await seite.reload();
+  await seite.locator('#erinnerung').waitFor();
+  await seite.click('#b-erinnerung-spaeter');
+  assert.equal(await seite.isVisible('#erinnerung'), false);
+  assert.match((await zuletztGesagt(seite)).text, /in einer Woche/);
+
+  await seite.evaluate(() => { localStorage.setItem('woists.seit', '20'); localStorage.removeItem('woists.spaeter'); });
+  await seite.click('#b-liste');
+  await seite.click('#s-liste [data-aktion="start"] >> nth=0');
+  await seite.locator('#erinnerung').waitFor();
+  const [download] = await Promise.all([seite.waitForEvent('download'), seite.click('#b-erinnerung-ja')]);
+  assert.ok(download);
+  await seite.waitForFunction(() => document.querySelector('#erinnerung').hidden);
+  assert.equal(await seite.evaluate(() => localStorage.getItem('woists.seit')), '0');
+  await kontext.close();
+});
+
 test('Gestaltung: Schriftgröße, Breite 360 px, keine Icons ohne Text', async () => {
   const { kontext, seite } = await neueSeite(android, ATTRAPPE);
   await sprich(seite, '#b-ablegen', 'Brille liegt auf dem Nachttisch');
@@ -297,7 +353,7 @@ test('Offline: App und Fuse.js kommen aus dem Service Worker', async () => {
   const { kontext, seite } = await neueSeite(android, ATTRAPPE);
   await seite.evaluate(() => navigator.serviceWorker.ready);
   await seite.waitForFunction(async () => {
-    const c = await caches.open('wo-ists-v2');
+    const c = await caches.open('wo-ists-v3');
     return (await c.keys()).length >= 10;
   });
   await kontext.setOffline(true);

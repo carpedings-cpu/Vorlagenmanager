@@ -61,3 +61,28 @@ test('leerer Satz', () => {
   assert.equal(zerlege('').sicher, false);
   assert.equal(zerlege('   ').gegenstand, '');
 });
+
+const app = require('../app.js');
+
+const nurOrtFaelle = [
+  ['Im Küchenschrank', 'im Küchenschrank'],
+  ['In die Schublade', 'in der Schublade'],
+  ['In den Küchenschrank', 'im Küchenschrank'],
+  ['Jetzt liegt er auf dem Kühlschrank', 'auf dem Kühlschrank'],
+  ['Hab ihn in den Flurschrank getan', 'im Flurschrank'],
+  ['Den Schlüssel hab ich ans Schlüsselbrett gehängt', 'am Schlüsselbrett'],
+  ['Bei Oma', 'bei Oma'],
+  ['Handschuhfach', 'Handschuhfach']
+];
+
+for (const [satz, ort] of nurOrtFaelle) {
+  test(`nur Ort: ${satz}`, () => assert.equal(app.nurOrt(satz), ort));
+}
+
+test('Satz für umgelegten Gegenstand behält den Artikel', () => {
+  const e = { gegenstand: 'Ersatzschlüssel fürs Auto', originalsatz: 'Den Ersatzschlüssel fürs Auto hab ich in die blaue Dose getan' };
+  assert.equal(app.umlegeSatz(e, 'im Küchenschrank'), 'Der Ersatzschlüssel fürs Auto liegt im Küchenschrank');
+  assert.equal(zerlege(app.umlegeSatz(e, 'im Küchenschrank')).genus, 'm');
+  assert.equal(app.umlegeSatz({ gegenstand: 'Brille', originalsatz: 'Brille liegt auf dem Tisch' }, 'im Bad'), 'Brille liegt im Bad');
+  assert.equal(app.umlegeSatz({ gegenstand: 'Winterjacken', originalsatz: 'Die Winterjacken sind im Keller' }, 'oben'), 'Die Winterjacken liegen oben');
+});
