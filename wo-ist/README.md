@@ -59,8 +59,10 @@ Vanilla HTML, CSS und JavaScript ohne Build-Schritt. Alle Pfade sind relativ, de
 Datenmodell eines Eintrags:
 
 ```js
-{ id, gegenstand, ort, originalsatz, foto /* Blob, optional */, erstellt, verlauf: [{ ort, datum }] }
+{ id, gegenstand, ort, originalsatz, foto /* optional */, erstellt, verlauf: [{ ort, datum }] }
 ```
+
+`foto` liegt als `{ typ, daten }` mit einem ArrayBuffer in IndexedDB und wird erst beim Anzeigen wieder zum Blob. Safari auf dem iPhone verliert Blobs aus IndexedDB sonst gelegentlich, das Foto fehlt dann beim zweiten Aufruf. Einträge im alten Format (direkter Blob) liest die App weiterhin.
 
 `erstellt` ist der Zeitpunkt, an dem der aktuelle Ort gespeichert wurde. Beim Umlegen wandert der alte Ort mit seinem Datum in `verlauf` (neuester zuerst, höchstens zehn). Ein altes Foto wird dabei verworfen, weil es den alten Ort zeigt.
 

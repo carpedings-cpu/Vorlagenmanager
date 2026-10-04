@@ -278,6 +278,15 @@ const hole = id => tx('readonly', s => s.get(id));
 const lege = e => tx('readwrite', s => s.put(e));
 const entferne = id => tx('readwrite', s => s.delete(id));
 
+const fotoAblegen = async blob => ({ typ: blob.type || 'image/jpeg', daten: await blob.arrayBuffer() });
+const fotoBlob = f => !f ? null : f instanceof Blob ? f : new Blob([f.daten], { type: f.typ });
+
+function ausDataUrl(url) {
+  const [kopf, b64] = url.split(',');
+  const bytes = Uint8Array.from(atob(b64), z => z.charCodeAt(0));
+  return new Blob([bytes], { type: kopf.slice(5, kopf.indexOf(';')) });
+}
+
 const neueId = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
 
 /* ---------- Oberfläche ---------- */
@@ -299,7 +308,7 @@ function start() {
 
   let hoerenGeht = !!SR && !(IOS && STANDALONE);
   let modus = 'ablegen', erkennung = null, letzter = null, offen = null, audio = null, stimme = null, entsperrt = false;
-  let zuLoeschen = null, fotoUrl = null;
+  let zuLoeschen = null, fotoUrl = null, trefferUrl = null;
 
   const el = (tag, klasse, text) => {
     const n = document.createElement(tag);
@@ -528,7 +537,7 @@ function start() {
     try {
       const blob = await verkleinere(datei);
       const e = await hole(letzter.id);
-      e.foto = blob;
+      e.foto = await fotoAblegen(blob);
       await lege(e);
       zeigeFoto(blob);
       $('#b-foto').textContent = 'Anderes Foto';
@@ -573,11 +582,12 @@ function start() {
     const k = el('article', 'karte');
     k.append(el('p', 'ding', anzeigeName(e)));
     if (e.ort) k.append(el('p', 'ort', grossAnfang(e.ort)));
-    if (e.foto) {
+    if (trefferUrl) URL.revokeObjectURL(trefferUrl);
+    trefferUrl = e.foto ? URL.createObjectURL(fotoBlob(e.foto)) : null;
+    if (trefferUrl) {
       const img = el('img', 'foto');
       img.alt = 'Foto vom Ort';
-      img.src = URL.createObjectURL(e.foto);
-      img.onload = () => URL.revokeObjectURL(img.src);
+      img.src = trefferUrl;
       k.append(img);
     }
     k.append(el('p', 'klein', 'Gespeichert am ' + datum(e.erstellt)));
@@ -651,7 +661,7 @@ function start() {
       autorin: 'Diana Ziegler',
       version: 1,
       exportiert: new Date().toISOString(),
-      eintraege: await Promise.all(liste.map(async e => ({ ...e, foto: e.foto ? await alsDataUrl(e.foto) : null })))
+      eintraege: await Promise.all(liste.map(async e => ({ ...e, foto: e.foto ? await alsDataUrl(fotoBlob(e.foto)) : null })))
     };
     const name = `wo-ists-sicherung-${new Date().toISOString().slice(0, 10)}.json`;
     const datei = new File([JSON.stringify(daten)], name, { type: 'application/json' });
@@ -683,7 +693,7 @@ function start() {
       for (const x of roh) {
         if (!x || !x.id || typeof x.originalsatz !== 'string') continue;
         const foto = typeof x.foto === 'string' && /^data:image\/(jpeg|png|webp);base64,/.test(x.foto)
-          ? await (await fetch(x.foto)).blob() : null;
+          ? await fotoAblegen(ausDataUrl(x.foto)) : null;
         await lege({
           id: String(x.id),
           gegenstand: String(x.gegenstand || ''),

@@ -160,11 +160,11 @@ test('Ablegen, Suchen, Verlauf, Foto, Liste, Sicherung', async () => {
   const foto = await seite.evaluate(async () => {
     const d = await new Promise(ok => { const r = indexedDB.open('wo-ists'); r.onsuccess = () => ok(r.result); });
     const alle = await new Promise(ok => { const r = d.transaction('eintraege').objectStore('eintraege').getAll(); r.onsuccess = () => ok(r.result); });
-    const b = alle[0].foto;
-    const img = await createImageBitmap(b);
-    return { typ: b.type, breite: img.width, hoehe: img.height };
+    const f = alle[0].foto;
+    const img = await createImageBitmap(new Blob([f.daten], { type: f.typ }));
+    return { typ: f.typ, breite: img.width, hoehe: img.height, arrayBuffer: f.daten instanceof ArrayBuffer };
   });
-  assert.deepEqual(foto, { typ: 'image/jpeg', breite: 1200, hoehe: 800 });
+  assert.deepEqual(foto, { typ: 'image/jpeg', breite: 1200, hoehe: 800, arrayBuffer: true });
   assert.equal((await zuletztGesagt(seite)).text, 'Foto gespeichert.');
 
   await seite.click('#b-stimmt');
@@ -176,6 +176,15 @@ test('Ablegen, Suchen, Verlauf, Foto, Liste, Sicherung', async () => {
   assert.equal(await seite.textContent('#treffer .ort'), 'In der blauen Dose im Flurschrank');
   assert.equal(await seite.locator('#treffer img.foto').count(), 1);
   assert.equal((await zuletztGesagt(seite)).text, 'Der Ersatzschlüssel fürs Auto ist in der blauen Dose im Flurschrank.');
+  await seite.click('#s-treffer [data-aktion="start"]');
+
+  for (let runde = 0; runde < 2; runde++) {
+    await seite.waitForTimeout(200);
+    await sprich(seite, runde ? '#s-treffer [data-aktion="suchen"]' : '#b-suchen', 'Wo ist der Autoschlüssel?');
+    await seite.waitForTimeout(200);
+    await seite.locator('#s-treffer').waitFor();
+    assert.equal(await seite.evaluate(() => document.querySelector('#treffer img.foto').naturalWidth), 1200, `Foto bei Frage ${runde + 2}`);
+  }
   await seite.click('#s-treffer [data-aktion="start"]');
 
   await sprich(seite, '#b-ablegen', 'Den Ersatzschlüssel fürs Auto hab ich ans Schlüsselbrett gehängt');
@@ -288,7 +297,7 @@ test('Offline: App und Fuse.js kommen aus dem Service Worker', async () => {
   const { kontext, seite } = await neueSeite(android, ATTRAPPE);
   await seite.evaluate(() => navigator.serviceWorker.ready);
   await seite.waitForFunction(async () => {
-    const c = await caches.open('wo-ists-v1');
+    const c = await caches.open('wo-ists-v2');
     return (await c.keys()).length >= 10;
   });
   await kontext.setOffline(true);
