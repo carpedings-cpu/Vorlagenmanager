@@ -1,8 +1,9 @@
 /* Wo ist's? · Autorin: Diana Ziegler */
 'use strict';
 
-const CACHE = 'wo-ists-v3';
+const CACHE = 'wo-ists-v4';
 const FUSE = 'https://cdn.jsdelivr.net/npm/fuse.js@7.1.0/dist/fuse.min.js';
+const SUPABASE_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js';
 const DATEIEN = [
   './',
   'index.html',
@@ -37,9 +38,9 @@ self.addEventListener('fetch', ev => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
 
-  if (req.url === FUSE) {
-    ev.respondWith(caches.match(FUSE).then(treffer => treffer || fetch(req).then(r => {
-      if (r.ok) caches.open(CACHE).then(c => c.put(FUSE, r.clone()));
+  if (req.url === FUSE || req.url === SUPABASE_JS) {
+    ev.respondWith(caches.match(req.url).then(treffer => treffer || fetch(req).then(r => {
+      if (r.ok) caches.open(CACHE).then(c => c.put(req.url, r.clone()));
       return r;
     })));
     return;

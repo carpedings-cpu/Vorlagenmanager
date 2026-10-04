@@ -40,9 +40,25 @@ Die Suche kennt gängige andere Wörter für dasselbe Ding: Wer nach dem Portemo
 
 **Alle Einträge** (Link unten): Liste mit Löschen-Knopf und Rückfrage. Dort auch **Sicherung speichern** und **Sicherung laden** (JSON-Datei mit allen Einträgen und Fotos). Eine Sicherung ab und zu, etwa per E-Mail an sich selbst, schützt vor Datenverlust bei Handywechsel oder -defekt. Nach 20 neuen Einträgen oder 30 Tagen ohne Sicherung fragt die App auf dem Startbildschirm einmal nach. „Später“ verschiebt die Frage um eine Woche.
 
+## Gemeinsam im Haushalt nutzen
+
+Zwei Geräte (z. B. zwei Handys oder Handy und iPad) können dieselben Einträge sehen. Beide melden sich unter „Alle Einträge“ → „Gemeinsam nutzen“ mit derselben E-Mail und demselben Passwort an und bleiben danach angemeldet. Die App gleicht beim Öffnen, nach jeder Änderung und bei wiederkehrendem Internet ab. Ohne Internet arbeitet jedes Gerät mit seiner eigenen Kopie weiter. Ändern beide denselben Gegenstand, gilt die zuletzt gemachte Änderung.
+
+Ohne Anmeldung bleibt alles wie bisher nur auf dem Gerät. Der Bereich „Gemeinsam nutzen“ erscheint erst, wenn die App mit einem Supabase-Projekt verbunden ist.
+
+### Einrichtung (einmalig)
+
+1. Auf supabase.com ein neues Projekt anlegen, Region **Frankfurt (eu-central-1)**.
+2. Im SQL-Editor den Inhalt von `supabase/schema.sql` ausführen. Das legt die Tabelle `eintraege`, den privaten Speicher `fotos` und die Zugriffsregeln an: Jedes Konto sieht nur seine eigenen Einträge und Fotos.
+3. Unter Project Settings → API die **Project URL** und den **Publishable Key** kopieren und oben in `app.js` bei `ABGLEICH` eintragen.
+4. Unter Authentication → Sign In / Providers → Email entscheiden, ob neue Konten ihre E-Mail bestätigen müssen. Für einen privaten Haushalt kann „Confirm email“ aus bleiben; dann klappt die Anmeldung sofort.
+5. In `service-worker.js` die Konstante `CACHE` hochzählen und neu veröffentlichen.
+
+Der Publishable Key darf öffentlich im Code stehen, geschützt sind die Daten über die Zugriffsregeln (Row Level Security). Ein kostenloses Supabase-Projekt wird nach einer Woche ohne Zugriff pausiert. Die App bleibt dann lokal nutzbar, gleicht aber erst wieder ab, wenn das Projekt im Supabase-Dashboard fortgesetzt wurde.
+
 ## Datenschutz
 
-Die App selbst speichert und sendet nichts nach außen. Die Spracherkennung übernimmt aber der Browser: Chrome schickt die Aufnahme dafür an Google, Safari an Apple (Siri). Wer das nicht möchte, tippt auf „Lieber tippen“ und nutzt die Tastatur. Fuse.js (Suche) wird einmalig von cdn.jsdelivr.net geladen und dann aus dem Gerätespeicher genutzt.
+Ohne Anmeldung speichert und sendet die App selbst nichts nach außen. Mit „Gemeinsam nutzen“ liegen Einträge und Fotos zusätzlich im eigenen Supabase-Projekt. Die Spracherkennung übernimmt aber der Browser: Chrome schickt die Aufnahme dafür an Google, Safari an Apple (Siri). Wer das nicht möchte, tippt auf „Lieber tippen“ und nutzt die Tastatur. Fuse.js (Suche) wird einmalig von cdn.jsdelivr.net geladen und dann aus dem Gerätespeicher genutzt.
 
 ## Technik
 
@@ -56,6 +72,7 @@ Vanilla HTML, CSS und JavaScript ohne Build-Schritt. Alle Pfade sind relativ, de
 | `service-worker.js` | Offline-Cache inkl. Fuse.js |
 | `manifest.json` | PWA-Angaben |
 | `icons/` | App-Symbole |
+| `supabase/schema.sql` | Datenbank und Zugriffsregeln für „Gemeinsam nutzen“ |
 | `tests/` | Tests |
 
 Datenmodell eines Eintrags:
@@ -67,6 +84,8 @@ Datenmodell eines Eintrags:
 `foto` liegt als `{ typ, daten }` mit einem ArrayBuffer in IndexedDB und wird erst beim Anzeigen wieder zum Blob. Safari auf dem iPhone verliert Blobs aus IndexedDB sonst gelegentlich, das Foto fehlt dann beim zweiten Aufruf. Einträge im alten Format (direkter Blob) liest die App weiterhin.
 
 `erstellt` ist der Zeitpunkt, an dem der aktuelle Ort gespeichert wurde. Beim Umlegen wandert der alte Ort mit seinem Datum in `verlauf` (neuester zuerst, höchstens zehn). Ein altes Foto wird dabei verworfen, weil es den alten Ort zeigt.
+
+Für den Abgleich kommen lokal `geaendert`, `offen` (noch nicht hochgeladen), `geloescht` (Löschmarke für das andere Gerät), `fotoPfad` und `fotoAlt` hinzu. In der Sicherungsdatei stehen nur die Felder des Datenmodells.
 
 Lässt sich ein Satz nicht sicher in Gegenstand und Ort zerlegen (z. B. „Zweitschlüssel hat die Nachbarin“), steht der ganze Satz in `gegenstand` und `originalsatz`, `ort` bleibt leer. Die Suche findet ihn trotzdem.
 
@@ -86,7 +105,7 @@ npm run test:browser  # Bedienung in Chromium, Android- und iPhone-Emulation
 
 `npm test` prüft das Zerlegen an 29 deutschen Beispielsätzen und 8 reinen Ortsangaben (darunter „hab den Pass in die Schublade getan“, „Brille liegt auf dem Nachttisch“, „Äh, also die Brille ist auf dem Klavier.“), die Suche mit und ohne Fuse.js samt Synonymen, die Rückfragen und alle Farbpaare auf mindestens 7:1.
 
-`npm run test:browser` spielt die Bedienung in Chromium durch: Erkennung der Sprach-Schnittstelle (Android-Chrome, Safari im Browser, Safari vom Home-Bildschirm mit Fallback, Browser ohne Schnittstelle, verweigertes Mikrofon), Ablegen, Rückfrage bei gleichem Gegenstand, Verlauf, Foto auf 1200 px und JPEG, mehrere Treffer, kein Treffer, Löschen mit Rückfrage, Sicherung und Laden, Nochmal vorlesen, Liegt jetzt woanders, Erinnerung an die Sicherung, Schriftgrößen, 360 px Breite und Offline-Start. Die Spracherkennung selbst wird dabei durch eine Attrappe ersetzt.
+`npm run test:browser` spielt die Bedienung in Chromium durch: Erkennung der Sprach-Schnittstelle (Android-Chrome, Safari im Browser, Safari vom Home-Bildschirm mit Fallback, Browser ohne Schnittstelle, verweigertes Mikrofon), Ablegen, Rückfrage bei gleichem Gegenstand, Verlauf, Foto auf 1200 px und JPEG, mehrere Treffer, kein Treffer, Löschen mit Rückfrage, Sicherung und Laden, Nochmal vorlesen, Liegt jetzt woanders, Erinnerung an die Sicherung, zwei Geräte über eine nachgebaute Supabase (Anmelden, Foto, Umlegen, Löschen), Schriftgrößen, 360 px Breite und Offline-Start. Die Spracherkennung selbst wird dabei durch eine Attrappe ersetzt.
 
 ### Noch auf echten Geräten zu prüfen
 

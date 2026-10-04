@@ -17,8 +17,46 @@ const UA_IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleW
 
 let server, basis, browser;
 
+const fake = { nutzer: new Map(), zeilen: new Map(), dateien: new Map() };
+function fakeSupabase(req, res) {
+  let roh = '';
+  req.on('data', d => { roh += d; });
+  req.on('end', () => {
+    const b = JSON.parse(roh || '{}');
+    const pfad = req.url.slice('/__fake'.length);
+    const antwort = obj => { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(obj)); };
+    const eigen = p => typeof p === 'string' && p.startsWith(b.uid + '/');
+    if (pfad === '/auth/signup') {
+      if (fake.nutzer.has(b.email)) return antwort({ error: 'User already registered' });
+      fake.nutzer.set(b.email, { id: require('node:crypto').randomUUID(), password: b.password });
+    }
+    if (pfad === '/auth/signup' || pfad === '/auth/login') {
+      const n = fake.nutzer.get(b.email);
+      if (!n || n.password !== b.password) return antwort({ error: 'Invalid login credentials' });
+      return antwort({ session: { access_token: 'x', user: { id: n.id, email: b.email } } });
+    }
+    if (!b.uid) return antwort({ error: 'not authenticated' });
+    if (pfad === '/rows') {
+      const rows = [...fake.zeilen.values()].filter(z => z.haushalt === b.uid && z.server_zeit > b.ab)
+        .sort((x, y) => x.server_zeit.localeCompare(y.server_zeit));
+      return antwort({ rows });
+    }
+    if (pfad === '/upsert') {
+      const alt = fake.zeilen.get(b.row.id);
+      if (alt && alt.haushalt !== b.uid) return antwort({ error: 'row level security' });
+      fake.zeilen.set(b.row.id, { ...b.row, haushalt: b.uid, server_zeit: new Date().toISOString() });
+      return antwort({});
+    }
+    if (pfad === '/storage/put') { if (!eigen(b.path)) return antwort({ error: 'rls' }); fake.dateien.set(b.path, b); return antwort({}); }
+    if (pfad === '/storage/get') { const d = fake.dateien.get(b.path); return antwort(d && eigen(b.path) ? d : { error: 'not found' }); }
+    if (pfad === '/storage/remove') { for (const p of b.paths) if (eigen(p)) fake.dateien.delete(p); return antwort({}); }
+    antwort({ error: 'unbekannt' });
+  });
+}
+
 test.before(async () => {
   server = http.createServer((req, res) => {
+    if (req.url.startsWith('/__fake/')) return fakeSupabase(req, res);
     const datei = path.join(WURZEL, decodeURIComponent(new URL(req.url, 'http://x').pathname));
     const ziel = fs.existsSync(datei) && fs.statSync(datei).isDirectory() ? path.join(datei, 'index.html') : datei;
     if (!ziel.startsWith(WURZEL) || !fs.existsSync(ziel)) { res.writeHead(404); return res.end(); }
@@ -325,6 +363,112 @@ test('Erinnerung an die Sicherung', async () => {
   await kontext.close();
 });
 
+test('Zwei Geräte im Haushalt teilen sich die Einträge', async () => {
+  const FAKE = fs.readFileSync(path.join(__dirname, 'fake-supabase.js'), 'utf8');
+  const vorbereiten = b => new Function(`window.WOISTS_ABGLEICH = { url: '${b}__fake', schluessel: 'test' };`);
+  const geraet = async () => {
+    const g = await neueSeite(android, ATTRAPPE);
+    await g.kontext.addInitScript(FAKE);
+    await g.kontext.addInitScript(vorbereiten(basis));
+    await g.seite.reload();
+    await g.seite.waitForFunction(() => typeof Fuse !== 'undefined');
+    return g;
+  };
+  const abgleich = async seite => {
+    const n = await seite.evaluate(() => Number(document.documentElement.dataset.abgleichNr) || 0);
+    await seite.click('#b-abgleichen');
+    await seite.waitForFunction(m => Number(document.documentElement.dataset.abgleichNr) > m && !document.documentElement.dataset.abgleich.startsWith('l'), n);
+    assert.equal(await seite.evaluate(() => document.documentElement.dataset.abgleich), 'fertig');
+  };
+  const zurListe = async seite => { await seite.click('#b-liste'); await seite.locator('#s-liste').waitFor(); };
+
+  const a = await geraet();
+  await sprich(a.seite, '#b-ablegen', 'Die Brille liegt auf dem Nachttisch');
+  await a.seite.locator('#s-ok').waitFor();
+  const bild = await a.seite.evaluate(() => {
+    const c = document.createElement('canvas'); c.width = 1600; c.height = 1200;
+    c.getContext('2d').fillRect(0, 0, 1600, 1200);
+    return c.toDataURL('image/png').split(',')[1];
+  });
+  await a.seite.setInputFiles('#foto-input', { name: 'o.png', mimeType: 'image/png', buffer: Buffer.from(bild, 'base64') });
+  await a.seite.locator('#ok-foto:not([hidden])').waitFor();
+  await a.seite.click('#b-stimmt');
+  await a.seite.waitForTimeout(200);
+
+  await zurListe(a.seite);
+  assert.equal(await a.seite.isVisible('#teilen'), true);
+  await a.seite.fill('#teilen-mail', 'familie@example.org');
+  await a.seite.fill('#teilen-pw', 'kurz');
+  await a.seite.click('#b-registrieren');
+  assert.match(await a.seite.textContent('#teilen-meldung'), /mindestens 8 Zeichen/);
+  await a.seite.fill('#teilen-pw', 'geheim-und-lang');
+  await a.seite.click('#b-registrieren');
+  await a.seite.locator('#teilen-an').waitFor();
+  assert.equal(await a.seite.textContent('#teilen-wer'), 'Verbunden als familie@example.org.');
+  await abgleich(a.seite);
+  assert.equal(fake.zeilen.size, 1);
+  assert.equal(fake.dateien.size, 1);
+
+  const b = await geraet();
+  await zurListe(b.seite);
+  await b.seite.fill('#teilen-mail', 'familie@example.org');
+  await b.seite.fill('#teilen-pw', 'falsch-falsch');
+  await b.seite.click('#b-anmelden');
+  await b.seite.waitForFunction(() => /stimmt nicht/.test(document.querySelector('#teilen-meldung').textContent));
+  await b.seite.fill('#teilen-pw', 'geheim-und-lang');
+  await b.seite.click('#b-anmelden');
+  await b.seite.locator('#teilen-an').waitFor();
+  await abgleich(b.seite);
+  await b.seite.waitForFunction(() => document.querySelectorAll('#liste li').length === 1);
+  assert.match(await b.seite.textContent('#liste li'), /Brille.*mit Foto/s);
+
+  await b.seite.click('#s-liste [data-aktion="start"] >> nth=1');
+  await b.seite.waitForTimeout(200);
+  await sprich(b.seite, '#b-suchen', 'Wo ist meine Brille?');
+  await b.seite.locator('#s-treffer').waitFor();
+  assert.equal(await b.seite.evaluate(() => document.querySelector('#treffer img.foto').naturalWidth), 1200);
+  await sprich(b.seite, 'text=Liegt jetzt woanders', 'Im Bad');
+  await b.seite.waitForFunction(() => /im Bad/.test(document.querySelector('#ok-text').textContent));
+  await b.seite.click('#b-stimmt');
+  await b.seite.waitForTimeout(200);
+  await zurListe(b.seite);
+  await abgleich(b.seite);
+  assert.equal(fake.dateien.size, 0, 'altes Foto im Speicher gelöscht');
+
+  await abgleich(a.seite);
+  await a.seite.click('#s-liste [data-aktion="start"] >> nth=1');
+  await a.seite.waitForTimeout(200);
+  await sprich(a.seite, '#b-suchen', 'Wo ist die Brille?');
+  await a.seite.locator('#s-treffer').waitFor();
+  assert.equal(await a.seite.textContent('#treffer .ort'), 'Im Bad');
+  assert.match(await a.seite.locator('#treffer .karte .klein').last().textContent(), /^Vorher lag sie: auf dem Nachttisch/);
+  assert.equal(await a.seite.locator('#treffer img.foto').count(), 0);
+  await a.seite.click('#s-treffer [data-aktion="start"]');
+  await a.seite.waitForTimeout(200);
+
+  await zurListe(a.seite);
+  await a.seite.getByRole('button', { name: 'Löschen' }).click();
+  await a.seite.click('#b-loeschen-ja');
+  await a.seite.locator('#s-liste').waitFor();
+  await abgleich(a.seite);
+  assert.equal(fake.zeilen.get([...fake.zeilen.keys()][0]).geloescht, true);
+  await abgleich(b.seite);
+  await b.seite.waitForFunction(() => document.querySelectorAll('#liste li').length === 0);
+
+  await b.seite.click('#b-abmelden');
+  await b.seite.locator('#teilen-aus').waitFor();
+  await a.kontext.close();
+  await b.kontext.close();
+});
+
+test('Ohne Konfiguration bleibt Gemeinsam nutzen verborgen', async () => {
+  const { kontext, seite } = await neueSeite(android, ATTRAPPE);
+  await seite.click('#b-liste');
+  await seite.locator('#s-liste').waitFor();
+  assert.equal(await seite.isVisible('#teilen'), false);
+  await kontext.close();
+});
+
 test('Gestaltung: Schriftgröße, Breite 360 px, keine Icons ohne Text', async () => {
   const { kontext, seite } = await neueSeite(android, ATTRAPPE);
   await sprich(seite, '#b-ablegen', 'Brille liegt auf dem Nachttisch');
@@ -353,7 +497,7 @@ test('Offline: App und Fuse.js kommen aus dem Service Worker', async () => {
   const { kontext, seite } = await neueSeite(android, ATTRAPPE);
   await seite.evaluate(() => navigator.serviceWorker.ready);
   await seite.waitForFunction(async () => {
-    const c = await caches.open('wo-ists-v3');
+    const c = await caches.open('wo-ists-v4');
     return (await c.keys()).length >= 10;
   });
   await kontext.setOffline(true);

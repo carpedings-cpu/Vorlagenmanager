@@ -1,6 +1,11 @@
 /* Wo ist's? · Autorin: Diana Ziegler */
 'use strict';
 
+/* Gemeinsam nutzen: Projekt-URL und Publishable Key aus Supabase eintragen. Leer = nur dieses Gerät. */
+const ABGLEICH = { url: '', schluessel: '' };
+const SUPABASE_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js';
+const SUPABASE_SRI = 'sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok';
+
 /* ---------- Satz zerlegen ---------- */
 
 const PRAEP = new Set(['in', 'im', 'ins', 'auf', 'aufs', 'unter', 'unterm', 'unters', 'hinter', 'hinterm', 'hinters',
@@ -329,7 +334,8 @@ async function tx(modus, fn) {
   });
 }
 
-const alle = () => tx('readonly', s => s.getAll());
+const alleRoh = () => tx('readonly', s => s.getAll());
+const alle = async () => (await alleRoh()).filter(e => !e.geloescht);
 const hole = id => tx('readonly', s => s.get(id));
 const lege = e => tx('readwrite', s => s.put(e));
 const entferne = id => tx('readwrite', s => s.delete(id));
@@ -365,6 +371,7 @@ function start() {
   let hoerenGeht = !!SR && !(IOS && STANDALONE);
   let modus = 'ablegen', erkennung = null, letzter = null, offen = null, audio = null, stimme = null, entsperrt = false;
   let zuLoeschen = null, fotoUrl = null, trefferUrl = null, umlegen = null;
+  let sb = null, sitzung = null, abgleichTimer = null, gleichtAb = false, nochmalAbgleichen = false;
 
   const el = (tag, klasse, text) => {
     const n = document.createElement(tag);
@@ -562,6 +569,20 @@ function start() {
     return speichere({ gegenstand: e.gegenstand, ort, sicher: true }, umlegeSatz(e, ort), e);
   }
 
+  async function aendere(e) {
+    e.geaendert = new Date().toISOString();
+    e.offen = true;
+    await lege(e);
+    planeAbgleich();
+  }
+
+  async function loescheEintrag(id) {
+    const e = await hole(id);
+    if (!e) return;
+    if (!sitzung) return entferne(id);
+    await aendere({ ...e, geloescht: true, foto: null, fotoPfad: null, fotoAlt: [...(e.fotoAlt || []), e.fotoPfad].filter(Boolean) });
+  }
+
   async function speichere(p, text, alt) {
     const jetzt = new Date().toISOString();
     const e = alt
@@ -571,11 +592,13 @@ function start() {
           ort: p.ort,
           originalsatz: text,
           foto: null,
+          fotoPfad: null,
+          fotoAlt: [...(alt.fotoAlt || []), alt.fotoPfad].filter(Boolean),
           erstellt: jetzt,
           verlauf: [{ ort: alt.ort || ohneSchluss(alt.originalsatz), datum: alt.erstellt }, ...(alt.verlauf || [])].slice(0, 10)
         }
       : { id: neueId(), gegenstand: p.gegenstand, ort: p.ort, originalsatz: text, foto: null, erstellt: jetzt, verlauf: [] };
-    await lege(e);
+    await aendere(e);
     merke.setze('seit', String((Number(merke.lies('seit')) || 0) + 1));
     if (!merke.lies('bezug')) merke.setze('bezug', jetzt);
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
@@ -600,8 +623,8 @@ function start() {
 
   async function nochmal() {
     if (letzter) {
-      if (letzter.vorher) await lege(letzter.vorher);
-      else await entferne(letzter.id);
+      if (letzter.vorher) await aendere({ ...letzter.vorher });
+      else await loescheEintrag(letzter.id);
       letzter = null;
     }
     starte(modus === 'umlegen' ? 'umlegen' : 'ablegen');
@@ -632,8 +655,10 @@ function start() {
     try {
       const blob = await verkleinere(datei);
       const e = await hole(letzter.id);
+      e.fotoAlt = [...(e.fotoAlt || []), e.fotoPfad].filter(Boolean);
       e.foto = await fotoAblegen(blob);
-      await lege(e);
+      e.fotoPfad = null;
+      await aendere(e);
       zeigeFoto(blob);
       $('#b-foto').textContent = 'Anderes Foto';
       ton(990, 200);
@@ -705,7 +730,7 @@ function start() {
 
   /* Alle Einträge */
 
-  async function zeigeListe(meldung) {
+  async function zeigeListe(meldung, leise) {
     const liste = (await alle()).sort((a, b) => anzeigeName(a).localeCompare(anzeigeName(b), 'de'));
     const ul = leere('#liste');
     for (const e of liste) {
@@ -722,6 +747,7 @@ function start() {
     const anzahl = liste.length === 0 ? 'Noch keine Einträge gespeichert.'
       : liste.length === 1 ? 'Ein Eintrag gespeichert.' : `${liste.length} Einträge gespeichert.`;
     $('#liste-anzahl').textContent = anzahl;
+    if (leise) return;
     melde(meldung || '');
     zeige('liste');
     if (!meldung) sage(anzahl);
@@ -744,7 +770,7 @@ function start() {
 
   async function loeschen() {
     if (!zuLoeschen) return;
-    await entferne(zuLoeschen.id);
+    await loescheEintrag(zuLoeschen.id);
     zuLoeschen = null;
     ton(440);
     zeigeListe('Gelöscht.');
@@ -766,7 +792,15 @@ function start() {
       autorin: 'Diana Ziegler',
       version: 1,
       exportiert: new Date().toISOString(),
-      eintraege: await Promise.all(liste.map(async e => ({ ...e, foto: e.foto ? await alsDataUrl(fotoBlob(e.foto)) : null })))
+      eintraege: await Promise.all(liste.map(async e => ({
+        id: e.id,
+        gegenstand: e.gegenstand,
+        ort: e.ort,
+        originalsatz: e.originalsatz,
+        foto: e.foto ? await alsDataUrl(fotoBlob(e.foto)) : null,
+        erstellt: e.erstellt,
+        verlauf: e.verlauf || []
+      })))
     };
     const name = `wo-ists-sicherung-${new Date().toISOString().slice(0, 10)}.json`;
     const datei = new File([JSON.stringify(daten)], name, { type: 'application/json' });
@@ -801,7 +835,7 @@ function start() {
         if (!x || !x.id || typeof x.originalsatz !== 'string') continue;
         const foto = typeof x.foto === 'string' && /^data:image\/(jpeg|png|webp);base64,/.test(x.foto)
           ? await fotoAblegen(ausDataUrl(x.foto)) : null;
-        await lege({
+        await aendere({
           id: String(x.id),
           gegenstand: String(x.gegenstand || ''),
           ort: String(x.ort || ''),
@@ -817,6 +851,190 @@ function start() {
     } catch (_) {
       melde('Diese Datei kann ich nicht lesen.');
     }
+  }
+
+  /* Gemeinsam nutzen (Supabase) */
+
+  const konfig = window.WOISTS_ABGLEICH || ABGLEICH;
+
+  function ladeSkript(src, sri) {
+    return new Promise((ok, fehler) => {
+      const s = document.createElement('script');
+      s.src = src;
+      s.integrity = sri;
+      s.crossOrigin = 'anonymous';
+      s.onload = ok;
+      s.onerror = fehler;
+      document.head.append(s);
+    });
+  }
+
+  function teilenMeldung(text, sprechen = true) {
+    const m = $('#teilen-meldung');
+    m.textContent = text;
+    m.hidden = !text;
+    if (text && sprechen) sage(text);
+  }
+
+  function zeigeTeilen() {
+    $('#teilen-aus').hidden = !!sitzung;
+    $('#teilen-an').hidden = !sitzung;
+    if (sitzung) $('#teilen-wer').textContent = `Verbunden als ${sitzung.user.email}.`;
+    $('#sicherung-text').textContent = sitzung
+      ? 'Die Einträge liegen auf diesem Gerät und im gemeinsamen Konto. Eine zusätzliche Sicherung schadet trotzdem nicht.'
+      : 'Die Einträge liegen nur auf diesem Gerät. Speichern Sie ab und zu eine Sicherung, zum Beispiel in Ihren Dateien oder per E-Mail an sich selbst.';
+  }
+
+  async function verbinde() {
+    if (!konfig.url) return;
+    $('#teilen').hidden = false;
+    try {
+      if (!window.supabase) await ladeSkript(SUPABASE_JS, SUPABASE_SRI);
+      sb = window.supabase.createClient(konfig.url, konfig.schluessel);
+      sitzung = (await sb.auth.getSession()).data.session;
+    } catch (_) {
+      teilenMeldung('Ohne Internet kann ich mich gerade nicht verbinden.', false);
+      return;
+    }
+    zeigeTeilen();
+    if (sitzung) gleicheAb();
+  }
+
+  function planeAbgleich() {
+    if (!sitzung) return;
+    clearTimeout(abgleichTimer);
+    abgleichTimer = setTimeout(gleicheAb, 1500);
+  }
+
+  async function uebernimm(z, lokal) {
+    if (z.geloescht) {
+      if (lokal) await entferne(z.id);
+      return true;
+    }
+    let foto = lokal && lokal.fotoPfad === z.foto_pfad ? lokal.foto : null;
+    let geklappt = true;
+    if (z.foto_pfad && !foto) {
+      const { data, error } = await sb.storage.from('fotos').download(z.foto_pfad);
+      if (!error && data) foto = await fotoAblegen(data); else geklappt = false;
+    }
+    await lege({
+      id: z.id,
+      gegenstand: z.gegenstand,
+      ort: z.ort,
+      originalsatz: z.originalsatz,
+      foto,
+      fotoPfad: foto ? z.foto_pfad : null,
+      erstellt: z.erstellt,
+      verlauf: z.verlauf || [],
+      geaendert: z.geaendert,
+      offen: false
+    });
+    return geklappt;
+  }
+
+  async function schiebe(e) {
+    const fotos = sb.storage.from('fotos');
+    let pfad = e.fotoPfad || null;
+    if (e.foto && !pfad && !e.geloescht) {
+      pfad = `${sitzung.user.id}/${e.id}/${Date.now()}.jpg`;
+      const { error } = await fotos.upload(pfad, fotoBlob(e.foto), { contentType: 'image/jpeg', upsert: true });
+      if (error) throw error;
+    }
+    const { error } = await sb.from('eintraege').upsert({
+      id: e.id,
+      gegenstand: e.gegenstand,
+      ort: e.ort,
+      originalsatz: e.originalsatz,
+      foto_pfad: e.geloescht ? null : pfad,
+      erstellt: e.erstellt,
+      verlauf: e.verlauf || [],
+      geaendert: e.geaendert,
+      geloescht: !!e.geloescht
+    });
+    if (error) throw error;
+    if (e.fotoAlt && e.fotoAlt.length) await fotos.remove(e.fotoAlt).catch(() => {});
+    const jetzt = await hole(e.id);
+    if (!jetzt || jetzt.geaendert !== e.geaendert) return;
+    if (e.geloescht) await entferne(e.id);
+    else await lege({ ...jetzt, fotoPfad: pfad, fotoAlt: [], offen: false });
+  }
+
+  async function gleicheAb() {
+    if (!sb || !sitzung) return;
+    if (gleichtAb) { nochmalAbgleichen = true; return; }
+    gleichtAb = true;
+    document.documentElement.dataset.abgleich = 'laeuft';
+    $('#teilen-stand').textContent = 'Gleiche gerade ab …';
+    try {
+      const cursor = merke.lies('abgleich') || '1970-01-01T00:00:00.000Z';
+      const ab = new Date(Date.parse(cursor) - 5 * 60e3).toISOString();
+      const { data: zeilen, error } = await sb.from('eintraege').select('*').gt('server_zeit', ab).order('server_zeit');
+      if (error) throw error;
+      let neuster = Date.parse(cursor), vollstaendig = true, geaendert = false;
+      for (const z of zeilen || []) {
+        neuster = Math.max(neuster, Date.parse(z.server_zeit));
+        const lokal = await hole(z.id);
+        if (lokal && lokal.offen && Date.parse(lokal.geaendert) >= Date.parse(z.geaendert)) continue;
+        if (lokal && !lokal.offen && Date.parse(lokal.geaendert) === Date.parse(z.geaendert) && lokal.fotoPfad === (z.foto_pfad || null)) continue;
+        if (!(await uebernimm(z, lokal))) vollstaendig = false;
+        geaendert = true;
+      }
+      for (const e of (await alleRoh()).filter(x => x.offen)) await schiebe(e);
+      if (vollstaendig) merke.setze('abgleich', new Date(neuster).toISOString());
+      const uhr = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+      $('#teilen-stand').textContent = `Zuletzt abgeglichen um ${uhr} Uhr.`;
+      document.documentElement.dataset.abgleich = 'fertig';
+      gesichert();
+      if (geaendert && !$('#s-liste').hidden) zeigeListe(null, true);
+    } catch (_) {
+      $('#teilen-stand').textContent = 'Abgleich hat nicht geklappt. Ich versuche es später noch einmal.';
+      document.documentElement.dataset.abgleich = 'fehler';
+    } finally {
+      document.documentElement.dataset.abgleichNr = String((Number(document.documentElement.dataset.abgleichNr) || 0) + 1);
+      gleichtAb = false;
+      if (nochmalAbgleichen) { nochmalAbgleichen = false; gleicheAb(); }
+    }
+  }
+
+  const ANMELDE_FEHLER = {
+    'Invalid login credentials': 'E-Mail oder Passwort stimmt nicht.',
+    'Email not confirmed': 'Die E-Mail ist noch nicht bestätigt. Bitte den Link in der E-Mail antippen.',
+    'User already registered': 'Für diese E-Mail gibt es schon ein Konto. Bitte anmelden.'
+  };
+
+  async function anmelden(neu) {
+    if (!sb) return teilenMeldung('Ohne Internet kann ich mich gerade nicht verbinden.');
+    const email = $('#teilen-mail').value.trim();
+    const password = $('#teilen-pw').value;
+    if (!email || !password) return teilenMeldung('Bitte E-Mail und Passwort eingeben.');
+    if (neu && password.length < 8) return teilenMeldung('Das Passwort braucht mindestens 8 Zeichen.');
+    teilenMeldung('Einen Moment …', false);
+    try {
+      const { data, error } = neu
+        ? await sb.auth.signUp({ email, password })
+        : await sb.auth.signInWithPassword({ email, password });
+      if (error) return teilenMeldung(ANMELDE_FEHLER[error.message] || 'Das hat nicht geklappt. Bitte später noch einmal versuchen.');
+      if (!data.session) return teilenMeldung('Ich habe Ihnen eine E-Mail geschickt. Bitte den Link darin antippen und sich danach hier anmelden.');
+      sitzung = data.session;
+    } catch (_) {
+      return teilenMeldung('Ohne Internet kann ich mich gerade nicht anmelden.');
+    }
+    $('#teilen-pw').value = '';
+    merke.setze('abgleich', '');
+    for (const e of await alleRoh()) if (!e.offen) await lege({ ...e, offen: true, geaendert: e.geaendert || e.erstellt });
+    zeigeTeilen();
+    ton(990, 200);
+    teilenMeldung('Angemeldet. Ich gleiche jetzt mit dem anderen Gerät ab.');
+    gleicheAb();
+  }
+
+  async function abmelden() {
+    if (sb) await sb.auth.signOut().catch(() => {});
+    sitzung = null;
+    merke.setze('abgleich', '');
+    zeigeTeilen();
+    ton(440);
+    teilenMeldung('Abgemeldet. Die Einträge bleiben auf diesem Gerät.');
   }
 
   /* Knöpfe */
@@ -847,6 +1065,12 @@ function start() {
   klick('#b-loeschen-ja', loeschen);
   klick('#b-export', sichern);
   klick('#b-import', () => $('#import-input').click());
+  klick('#b-anmelden', () => anmelden(false));
+  klick('#b-registrieren', () => anmelden(true));
+  klick('#b-abgleichen', () => { ton(660, 80); sage('Ich gleiche ab.'); gleicheAb(); });
+  klick('#b-abmelden', abmelden);
+  window.addEventListener('online', () => gleicheAb());
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') gleicheAb(); });
   $('#import-input').addEventListener('change', ev => { laden(ev.target.files[0]); ev.target.value = ''; });
 
   document.addEventListener('click', ev => {
@@ -861,6 +1085,7 @@ function start() {
   });
 
   pruefeErinnerung();
+  verbinde();
 
   if ('speechSynthesis' in window) {
     waehleStimme();

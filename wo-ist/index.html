@@ -97,10 +97,29 @@
     <button class="knopf hell" type="button" data-aktion="start">Zurück zum Start</button>
     <ul id="liste" class="stapel"></ul>
     <h2>Datensicherung</h2>
-    <p class="klein">Die Einträge liegen nur auf diesem Gerät. Speichern Sie ab und zu eine Sicherung, zum Beispiel in Ihren Dateien oder per E-Mail an sich selbst.</p>
+    <p id="sicherung-text" class="klein">Die Einträge liegen nur auf diesem Gerät. Speichern Sie ab und zu eine Sicherung, zum Beispiel in Ihren Dateien oder per E-Mail an sich selbst.</p>
     <button id="b-export" class="knopf hell" type="button">Sicherung speichern</button>
     <button id="b-import" class="knopf hell" type="button">Sicherung laden</button>
     <input id="import-input" class="unsichtbar" type="file" accept="application/json,.json" tabindex="-1" aria-hidden="true">
+    <div id="teilen" class="stapel" hidden>
+      <h2>Gemeinsam nutzen</h2>
+      <div id="teilen-aus" class="stapel">
+        <p class="klein">Melden Sie sich auf beiden Geräten mit derselben E-Mail und demselben Passwort an. Dann sehen beide dieselben Einträge.</p>
+        <label for="teilen-mail">E-Mail</label>
+        <input id="teilen-mail" type="email" autocomplete="username" inputmode="email" autocapitalize="off" spellcheck="false">
+        <label for="teilen-pw">Passwort</label>
+        <input id="teilen-pw" type="password" autocomplete="current-password">
+        <button id="b-anmelden" class="knopf blau" type="button">Anmelden</button>
+        <button id="b-registrieren" class="knopf hell" type="button">Neues Konto anlegen</button>
+      </div>
+      <div id="teilen-an" class="stapel" hidden>
+        <p id="teilen-wer"></p>
+        <p id="teilen-stand" class="klein"></p>
+        <button id="b-abgleichen" class="knopf hell" type="button">Jetzt abgleichen</button>
+        <button id="b-abmelden" class="knopf hell" type="button">Abmelden</button>
+      </div>
+      <p id="teilen-meldung" class="meldung" role="status" hidden></p>
+    </div>
     <button class="knopf hell" type="button" data-aktion="start">Zurück zum Start</button>
   </section>
 
