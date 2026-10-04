@@ -1,0 +1,198 @@
+/* Wo ist's? · Autorin: Diana Ziegler */
+:root {
+  --grund: #FBFAF6;
+  --karte: #FFFFFF;
+  --text: #1A1A1A;
+  --leise: #3D3D3D;
+  --linie: #595959;
+  --gruen: #1B5E20;
+  --blau: #0D47A1;
+  --rot: #8B1A1A;
+  --puls: #B3261E;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  background: var(--grund);
+  color: var(--text);
+  font: 24px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+main {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: max(16px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+}
+
+h1 { font-size: 34px; line-height: 1.2; margin: 8px 0 0; }
+h2 { font-size: 28px; margin: 24px 0 0; }
+p { margin: 0; }
+[tabindex="-1"]:focus { outline: none; }
+
+.screen { display: flex; flex-direction: column; gap: 20px; }
+.screen[hidden] { display: none; }
+
+.start {
+  min-height: calc(100svh - max(16px, env(safe-area-inset-top)) - max(24px, env(safe-area-inset-bottom)));
+}
+
+button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+button:focus-visible, textarea:focus-visible { outline: 4px solid #000; outline-offset: 4px; }
+button:active { transform: scale(0.98); }
+
+.gross {
+  hyphens: manual;
+  -webkit-hyphens: manual;
+  flex: 1 1 0;
+  min-height: 220px;
+  border: 0;
+  border-radius: 28px;
+  color: #fff;
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1.15;
+  padding: 24px;
+}
+
+.knopf {
+  display: block;
+  width: 100%;
+  min-height: 88px;
+  padding: 18px 20px;
+  border: 3px solid transparent;
+  border-radius: 20px;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.gruen { background: var(--gruen); color: #fff; }
+.blau { background: var(--blau); color: #fff; }
+.rot { background: var(--rot); color: #fff; }
+.hell { background: var(--karte); color: var(--text); border-color: var(--linie); }
+
+.link {
+  align-self: center;
+  min-height: 56px;
+  padding: 12px 24px;
+  border: 0;
+  background: none;
+  color: var(--blau);
+  font-size: 24px;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.klein { font-size: 22px; color: var(--leise); }
+.hinweis { font-size: 26px; font-weight: 600; }
+.status { font-size: 32px; font-weight: 700; text-align: center; }
+.live { font-size: 28px; min-height: 1.5em; text-align: center; font-style: italic; }
+
+.ergebnis { font-size: 32px; line-height: 1.3; font-weight: 600; }
+
+.meldung {
+  font-size: 24px;
+  font-weight: 600;
+  background: #E7F0E7;
+  border-left: 8px solid var(--gruen);
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+
+textarea {
+  width: 100%;
+  min-height: 180px;
+  padding: 16px;
+  border: 3px solid var(--linie);
+  border-radius: 16px;
+  background: var(--karte);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 28px;
+  line-height: 1.4;
+  resize: vertical;
+}
+
+.stapel { display: flex; flex-direction: column; gap: 20px; margin: 0; padding: 0; list-style: none; }
+
+.karte {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--karte);
+  border: 2px solid #C9C9C9;
+  border-radius: 20px;
+  padding: 18px 14px;
+}
+
+.karte.wahl {
+  width: 100%;
+  text-align: left;
+  color: var(--text);
+  border: 3px solid var(--blau);
+}
+
+.ding { font-size: 32px; font-weight: 700; line-height: 1.2; }
+.ort { font-size: 32px; line-height: 1.3; }
+.ort-klein { font-size: 24px; }
+
+.foto {
+  width: 100%;
+  max-height: 55vh;
+  object-fit: contain;
+  border-radius: 16px;
+  background: #EDEDED;
+}
+
+.loeschen {
+  background: var(--karte);
+  color: var(--rot);
+  border-color: var(--rot);
+  min-height: 72px;
+}
+
+.puls {
+  position: relative;
+  width: 110px;
+  height: 110px;
+  margin: 12px auto 0;
+}
+
+.puls span,
+.puls::before {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--puls);
+}
+
+.puls::before {
+  content: "";
+  animation: puls 1.4s ease-out infinite;
+}
+
+@keyframes puls {
+  from { transform: scale(1); opacity: 0.55; }
+  to { transform: scale(1.6); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .puls::before { animation: none; transform: scale(1.25); opacity: 0.3; }
+}
+
+.unsichtbar {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

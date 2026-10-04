@@ -1,0 +1,16 @@
+{
+  "name": "wo-ists",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Wo ist's? Sagen, wo etwas liegt, und es später per Frage wiederfinden.",
+  "author": "Diana Ziegler",
+  "license": "UNLICENSED",
+  "scripts": {
+    "test": "node --test tests/parser.test.js tests/suche.test.js tests/kontrast.test.js",
+    "test:browser": "node --test tests/browser.test.js"
+  },
+  "devDependencies": {
+    "fuse.js": "7.1.0",
+    "playwright": "1.56.1"
+  }
+}

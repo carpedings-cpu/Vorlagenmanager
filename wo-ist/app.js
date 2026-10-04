@@ -1,0 +1,747 @@
+/* Wo ist's? · Autorin: Diana Ziegler */
+'use strict';
+
+/* ---------- Satz zerlegen ---------- */
+
+const PRAEP = new Set(['in', 'im', 'ins', 'auf', 'aufs', 'unter', 'unterm', 'unters', 'hinter', 'hinterm', 'hinters',
+  'neben', 'bei', 'beim', 'zwischen', 'vor', 'vorm', 'vors', 'über', 'überm', 'übers', 'an', 'am', 'ans', 'oben', 'unten']);
+const DAT_PRAEP = new Set(['in', 'auf', 'unter', 'hinter', 'neben', 'zwischen', 'vor', 'über', 'an']);
+const KURZ_AKK = { ins: ['im'], ans: ['am'], aufs: ['auf', 'dem'], unters: ['unter', 'dem'], hinters: ['hinter', 'dem'],
+  vors: ['vor', 'dem'], übers: ['über', 'dem'] };
+const ART_AKK = { die: 'der', das: 'dem', ein: 'einem', eine: 'einer', meine: 'meiner', mein: 'meinem', deine: 'deiner',
+  dein: 'deinem', seine: 'seiner', sein: 'seinem', unsere: 'unserer', unser: 'unserem' };
+const ART_MASK = { den: 'dem', einen: 'einem', meinen: 'meinem', deinen: 'deinem', seinen: 'seinem', unseren: 'unserem' };
+const ART_PLURAL = { die: 'den', meine: 'meinen', deine: 'deinen', seine: 'seinen', ihre: 'ihren', unsere: 'unseren' };
+const GENUS = { der: 'm', den: 'm', einen: 'm', meinen: 'm', unseren: 'm', die: 'f', eine: 'f', meine: 'f', unsere: 'f', das: 'n' };
+const PLURAL_VERB = new Set(['sind', 'liegen', 'stehen', 'hängen', 'befinden']);
+const FUELL = new Set(['ich', 'hab', 'habe', "hab's", 'habs', 'hat', 'den', 'die', 'das', 'der', 'meine', 'meinen', 'mein',
+  'unsere', 'unseren', 'unser', 'ein', 'eine', 'einen', 'also', 'so', 'äh', 'ähm', 'öhm', 'ok', 'okay', 'jetzt', 'gerade',
+  'grad', 'heute', 'gestern', 'vorhin', 'eben', 'nun', 'und', 'dann', 'mal', 'da', 'hier', 'wieder', 'lege', 'leg', 'tue',
+  'tu', 'stecke', 'steck', 'packe', 'pack', 'stelle', 'stell', 'hänge', 'häng', 'bringe', 'bring', 'liegt', 'liegen', 'ist',
+  'sind', 'steht', 'stehen', 'hängt', 'hängen', 'befindet', 'befinden', 'sich', 'ihn', 'es']);
+const ORT_ENDE = new Set([...FUELL, 'hin', 'rein', 'hinein', 'ab', 'weg', 'lassen', 'verstaut', 'versteckt', 'deponiert',
+  'hinterlegt', 'aufbewahrt', 'aufgehoben', 'untergebracht', 'erstmal']);
+const BEWEGUNG = new Set(['lege', 'leg', 'legen', 'tue', 'tu', 'tun', 'stecke', 'steck', 'packe', 'pack', 'stelle', 'stell',
+  'hänge', 'häng', 'bringe', 'bring', 'räume', 'verstaue', 'verstaut', 'versteckt', 'verstecke', 'deponiert', 'hinterlegt',
+  'untergebracht']);
+const RUHE = new Set(['gelegen', 'gestanden', 'gehangen', 'gesessen', 'gewesen']);
+const PARTIZIP = /^[a-zäöüß]*ge[a-zäöüß]*(t|en|tan)$/;
+
+const sauber = w => w.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
+const klein = w => sauber(w).toLowerCase();
+const gross = w => /^\p{Lu}/u.test(sauber(w));
+const grossAnfang = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+const ohneSchluss = s => s.replace(/[\s.,;:!?…]+$/u, '').trim();
+const istPartizip = w => !gross(w) && PARTIZIP.test(klein(w)) && !RUHE.has(klein(w));
+
+function ersetze(wort, neu) {
+  const m = wort.match(/^([^\p{L}\p{N}]*)[\s\S]*?([^\p{L}\p{N}]*)$/u);
+  return m[1] + neu + m[2];
+}
+
+function kuerze(t) {
+  let a = 0, b = t.length, genus = null;
+  while (a < b && FUELL.has(klein(t[a]))) { genus = genus || GENUS[klein(t[a])] || null; a++; }
+  while (b > a && (FUELL.has(klein(t[b - 1])) || istPartizip(t[b - 1]))) b--;
+  return { t: t.slice(a, b), genus };
+}
+
+function ortsende(t, p) {
+  let i = p;
+  while (i < t.length && PRAEP.has(klein(t[i]))) {
+    i++;
+    if (i < t.length && PRAEP.has(klein(t[i]))) continue;
+    while (i < t.length && !gross(t[i])) i++;
+    if (i >= t.length) return -1;
+    i++;
+  }
+  return i < t.length ? i : -1;
+}
+
+function adjDativ(w) {
+  const s = sauber(w);
+  if (gross(w)) return w;
+  if (/es$/.test(s)) return ersetze(w, s.slice(0, -2) + 'en');
+  if (/e$/.test(s)) return ersetze(w, s + 'n');
+  return w;
+}
+
+function zuDativ(ein, bewegung) {
+  const t = [];
+  for (const w of ein) t.push(...(KURZ_AKK[klein(w)] || [w]));
+  for (let i = 0; i < t.length - 1; i++) {
+    const pr = klein(t[i]);
+    if (!DAT_PRAEP.has(pr)) continue;
+    const art = klein(t[i + 1]);
+    let j = i + 2;
+    while (j < t.length && !gross(t[j]) && !PRAEP.has(klein(t[j]))) j++;
+    const nomen = j < t.length && gross(t[j]) ? j : -1;
+    const plural = art in ART_PLURAL && (pr === 'zwischen' || (nomen > 0 && /(en|[^s]s)$/.test(klein(t[nomen]))));
+    const neu = plural ? ART_PLURAL[art]
+      : pr === 'zwischen' ? null
+      : ART_AKK[art] || (bewegung ? ART_MASK[art] : null);
+    if (!neu) continue;
+    for (let a = i + 2; a < (nomen > 0 ? nomen : j); a++) t[a] = adjDativ(t[a]);
+    if (plural && nomen > 0 && !/[ns]$/.test(klein(t[nomen]))) t[nomen] = ersetze(t[nomen], sauber(t[nomen]) + 'n');
+    if (neu === 'dem' && (pr === 'in' || pr === 'an')) {
+      t[i] = ersetze(t[i], pr === 'in' ? 'im' : 'am');
+      t.splice(i + 1, 1);
+    } else {
+      t[i + 1] = ersetze(t[i + 1], neu);
+    }
+  }
+  return t;
+}
+
+function zerlege(satz) {
+  const text = ohneSchluss(String(satz || '').replace(/\s+/g, ' ').trim());
+  const unsicher = { gegenstand: grossAnfang(text), ort: '', sicher: false, genus: null };
+  const t = text.split(' ').filter(w => sauber(w));
+  const p = t.findIndex(w => PRAEP.has(klein(w)));
+  if (p < 0) return unsicher;
+
+  const bewegung = t.some(w => BEWEGUNG.has(klein(w)) || istPartizip(w));
+  let ding = kuerze(t.slice(0, p)), ortT;
+  if (ding.t.length) {
+    ortT = t.slice(p);
+  } else {
+    const e = ortsende(t, p);
+    if (e < 0) return unsicher;
+    ortT = t.slice(p, e);
+    ding = kuerze(t.slice(e));
+  }
+  while (ortT.length && (ORT_ENDE.has(klein(ortT[ortT.length - 1])) || istPartizip(ortT[ortT.length - 1]))) ortT.pop();
+
+  const nurAdverb = ortT.length === 1 && ['oben', 'unten'].includes(klein(ortT[0]));
+  if (!ding.t.length || ding.t.length > 8 || (ortT.length < 2 && !nurAdverb)) return unsicher;
+
+  const ortW = zuDativ(ortT, bewegung);
+  ortW[0] = ortW[0].toLowerCase();
+  const plural = t.some((w, i) => PLURAL_VERB.has(klein(w)) && !/^(ge)?lassen$/.test(klein(t[i + 1] || '')));
+  return {
+    gegenstand: grossAnfang(ohneSchluss(ding.t.join(' '))),
+    ort: ohneSchluss(ortW.join(' ')),
+    sicher: true,
+    genus: plural ? 'p' : ding.genus
+  };
+}
+
+/* ---------- Suchen ---------- */
+
+const FRAGE_STOPP = new Set(['wo', 'wohin', 'woanders', 'ist', 'sind', 'liegt', 'liegen', 'steht', 'stehen', 'hängt', 'hängen',
+  'hab', 'habe', 'hast', 'hat', 'haben', 'ich', 'du', 'er', 'sie', 'es', 'man', 'wir', 'der', 'die', 'das', 'den', 'dem', 'des',
+  'mein', 'meine', 'meinen', 'meinem', 'meiner', 'unser', 'unsere', 'unseren', 'ein', 'eine', 'einen', 'denn', 'nur', 'noch',
+  'nochmal', 'mal', 'eigentlich', 'bloß', 'blos', 'schon', 'wieder', 'gleich', 'bitte', 'hin', 'hingelegt', 'gelegt', 'getan',
+  'gesteckt', 'gelassen', 'abgelegt', 'versteckt', 'verlegt', 'was', 'wie', 'finde', 'find', 'nicht', 'kann', 'suche', 'such',
+  'sag', 'sage', 'mir', 'mich', 'weißt', 'war', 'waren', 'äh', 'ähm', 'also', 'so', 'jetzt', 'dieser', 'diese', 'dieses',
+  'verflixte', 'verflixt', 'blöde', 'gibt', 'geblieben', 'gesteckt', 'gestellt', 'gepackt', 'getan']);
+
+const normal = s => String(s || '').toLowerCase().replace(/[^\p{L}\p{N} ]+/gu, ' ').replace(/\s+/g, ' ').trim();
+
+function frageBereinigen(frage) {
+  return normal(frage).split(' ').filter(w => w.length > 1 && !FRAGE_STOPP.has(w)).join(' ');
+}
+
+function einfacheSuche(liste, q) {
+  const worte = q.split(' ').filter(w => w.length >= 3);
+  return liste.map(e => {
+    const g = normal(e.gegenstand), s = normal(e.originalsatz);
+    if (g.includes(q)) return { item: e, score: 0.05 };
+    if (s.includes(q)) return { item: e, score: 0.2 };
+    const n = worte.filter(w => g.includes(w) || s.includes(w)).length;
+    return n ? { item: e, score: 0.4 - 0.2 * n / worte.length } : null;
+  }).filter(Boolean);
+}
+
+function fuseSuche(liste, q, keys, schwelle) {
+  if (typeof Fuse === 'undefined') return einfacheSuche(liste, q);
+  return new Fuse(liste, { keys, includeScore: true, ignoreLocation: true, threshold: schwelle, minMatchCharLength: 3 }).search(q);
+}
+
+function laengsteGemeinsam(a, b) {
+  let best = '';
+  for (let i = 0; i < a.length; i++) {
+    for (let j = i + best.length + 1; j <= a.length; j++) {
+      if (b.includes(a.slice(i, j))) best = a.slice(i, j); else break;
+    }
+  }
+  return best;
+}
+
+function wortteilScore(q, e) {
+  const worte = normal(e.gegenstand).split(' ').filter(w => w.length >= 3);
+  const gedeckt = new Array(q.length).fill(false);
+  for (const qw of q.split(' ')) {
+    for (const w of worte) {
+      const teil = laengsteGemeinsam(qw, w);
+      if (teil.length < 5 && !(teil.length >= 3 && (teil === w || teil === qw))) continue;
+      const start = q.indexOf(teil);
+      for (let i = start; i < start + teil.length; i++) gedeckt[i] = true;
+    }
+  }
+  const anteil = gedeckt.filter(Boolean).length / q.replace(/ /g, '').length;
+  return anteil >= 0.4 ? (1 - anteil) * 0.5 : null;
+}
+
+function suche(frage, liste) {
+  const q = frageBereinigen(frage);
+  if (!q || !liste.length) return [];
+  const exakt = liste.filter(e => normal(e.gegenstand) === q);
+  if (exakt.length === 1) return exakt;
+  const keys = [{ name: 'gegenstand', weight: 2 }, { name: 'originalsatz', weight: 1 }];
+  const teile = new Set([q, ...q.split(' ').filter(w => w.length >= 4)]);
+  const best = new Map();
+  for (const teil of teile) {
+    for (const r of fuseSuche(liste, teil, keys, 0.4)) {
+      const alt = best.get(r.item.id);
+      if (!alt || r.score < alt.score) best.set(r.item.id, r);
+    }
+  }
+  for (const e of liste) {
+    const score = wortteilScore(q, e);
+    const alt = best.get(e.id);
+    if (score != null && (!alt || score < alt.score)) best.set(e.id, { item: e, score });
+  }
+  const sortiert = [...best.values()].sort((a, b) => a.score - b.score);
+  if (!sortiert.length) return [];
+  const grenze = sortiert[0].score + 0.1;
+  return sortiert.filter(r => r.score <= grenze).slice(0, 3).map(r => r.item);
+}
+
+function findeDoppelt(gegenstand, liste) {
+  const q = normal(gegenstand);
+  if (!q || !liste.length) return null;
+  const gleich = liste.find(e => normal(e.gegenstand) === q);
+  if (gleich) return gleich;
+  const r = fuseSuche(liste, q, ['gegenstand'], 0.3)[0];
+  const laenge = r ? Math.min(q.length, normal(r.item.gegenstand).length) / Math.max(q.length, normal(r.item.gegenstand).length) : 0;
+  return r && r.score <= 0.2 && laenge >= 0.5 ? r.item : null;
+}
+
+/* ---------- Sätze für Anzeige und Sprache ---------- */
+
+const NOM = { m: 'Der', f: 'Die', n: 'Das', p: 'Die' };
+const AKK = { m: 'den', f: 'die', n: 'das', p: 'die' };
+const VORHER = { m: 'Vorher lag er:', f: 'Vorher lag sie:', n: 'Vorher lag es:', p: 'Vorher lagen sie:' };
+
+const genusVon = e => zerlege(e.originalsatz).genus;
+const anzeigeName = e => e.ort ? e.gegenstand : ohneSchluss(e.originalsatz);
+
+function antwortSatz(e) {
+  if (!e.ort) return ohneSchluss(e.originalsatz) + '.';
+  const g = genusVon(e);
+  return g ? `${NOM[g]} ${e.gegenstand} ${g === 'p' ? 'sind' : 'ist'} ${e.ort}.` : `${e.gegenstand}: ${e.ort}.`;
+}
+
+function rueckfrage(alt, genus) {
+  const g = genusVon(alt) || genus;
+  return g ? `Meinen Sie ${AKK[g]} ${alt.gegenstand} von vorher?` : `Meinen Sie diesen Eintrag von vorher: ${anzeigeName(alt)}?`;
+}
+
+function vorherSatz(e, v) {
+  return `${VORHER[genusVon(e)] || 'Vorher:'} ${v.ort} (${datum(v.datum)})`;
+}
+
+function datum(iso) {
+  const d = new Date(iso);
+  return isNaN(d) ? '' : d.toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+if (typeof module === 'object' && module.exports) {
+  module.exports = { zerlege, frageBereinigen, suche, findeDoppelt, antwortSatz, rueckfrage, vorherSatz };
+}
+
+/* ---------- Speicher (IndexedDB) ---------- */
+
+let dbVersprechen;
+function db() {
+  return dbVersprechen ||= new Promise((ok, fehler) => {
+    const r = indexedDB.open('wo-ists', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('eintraege', { keyPath: 'id' });
+    r.onsuccess = () => ok(r.result);
+    r.onerror = () => fehler(r.error);
+  });
+}
+
+async function tx(modus, fn) {
+  const d = await db();
+  return new Promise((ok, fehler) => {
+    const t = d.transaction('eintraege', modus);
+    const r = fn(t.objectStore('eintraege'));
+    t.oncomplete = () => ok(r.result);
+    t.onerror = () => fehler(t.error);
+  });
+}
+
+const alle = () => tx('readonly', s => s.getAll());
+const hole = id => tx('readonly', s => s.get(id));
+const lege = e => tx('readwrite', s => s.put(e));
+const entferne = id => tx('readwrite', s => s.delete(id));
+
+const neueId = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
+
+/* ---------- Oberfläche ---------- */
+
+if (typeof document !== 'undefined') start();
+
+function start() {
+  const $ = s => document.querySelector(s);
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const STANDALONE = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  const GRUND = {
+    'not-allowed': 'Das Mikrofon ist für diese App nicht freigegeben.',
+    'service-not-allowed': 'Die Spracherkennung ist hier nicht verfügbar.',
+    'audio-capture': 'Ich finde kein Mikrofon.',
+    'network': 'Die Spracherkennung braucht gerade Internet.',
+    'language-not-supported': 'Die Spracherkennung kann hier kein Deutsch.'
+  };
+
+  let hoerenGeht = !!SR && !(IOS && STANDALONE);
+  let modus = 'ablegen', erkennung = null, letzter = null, offen = null, audio = null, stimme = null, entsperrt = false;
+  let zuLoeschen = null, fotoUrl = null;
+
+  const el = (tag, klasse, text) => {
+    const n = document.createElement(tag);
+    if (klasse) n.className = klasse;
+    if (text != null) n.textContent = text;
+    return n;
+  };
+  const leere = s => { const n = $(s); n.replaceChildren(); return n; };
+
+  document.documentElement.dataset.hoeren = hoerenGeht ? 'ja' : 'nein';
+
+  /* Sprache und Töne */
+
+  function waehleStimme() {
+    const de = speechSynthesis.getVoices().filter(v => /^de/i.test(v.lang));
+    stimme = de.find(v => v.lang === 'de-DE' && v.localService) || de.find(v => v.lang === 'de-DE') || de[0] || null;
+  }
+
+  function sage(text) {
+    if (!('speechSynthesis' in window)) return;
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'de-DE';
+    u.rate = 0.9;
+    if (stimme) u.voice = stimme;
+    speechSynthesis.speak(u);
+  }
+
+  function entsperre() {
+    if (entsperrt) return;
+    entsperrt = true;
+    if ('speechSynthesis' in window) {
+      const u = new SpeechSynthesisUtterance(' ');
+      u.volume = 0;
+      speechSynthesis.speak(u);
+    }
+    ton(0, 1);
+  }
+
+  function ton(hz = 660, ms = 160) {
+    try {
+      audio ||= new (window.AudioContext || window.webkitAudioContext)();
+      if (audio.state === 'suspended') audio.resume();
+      if (!hz) return;
+      const o = audio.createOscillator(), g = audio.createGain(), t = audio.currentTime;
+      o.frequency.value = hz;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.25, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + ms / 1000);
+      o.connect(g).connect(audio.destination);
+      o.start(t);
+      o.stop(t + ms / 1000 + 0.05);
+    } catch (_) { /* ohne Ton weiter */ }
+  }
+
+  /* Bildschirme */
+
+  function zeige(name) {
+    document.querySelectorAll('.screen').forEach(s => { s.hidden = s.id !== 's-' + name; });
+    if (name !== 'start' && !(history.state && history.state.tief)) history.pushState({ tief: true }, '');
+    window.scrollTo(0, 0);
+    const ziel = $('#s-' + name + ' [data-fokus]');
+    if (ziel) ziel.focus({ preventScroll: true });
+  }
+
+  function zumStart() {
+    stoppeHoeren();
+    if (history.state && history.state.tief) history.back();
+    else zeige('start');
+  }
+
+  window.addEventListener('popstate', () => {
+    if (history.state && history.state.tief) return;
+    stoppeHoeren();
+    zeige('start');
+  });
+
+  /* Hören und Tippen */
+
+  function starte(m) {
+    modus = m;
+    entsperre();
+    if ('speechSynthesis' in window) speechSynthesis.cancel();
+    const ablegen = m === 'ablegen';
+    $('#hoeren-titel').textContent = $('#tippen-titel').textContent = ablegen ? 'Was legen Sie wohin?' : 'Was suchen Sie?';
+    $('#hoeren-beispiel').textContent = $('#tippen-beispiel').textContent = ablegen
+      ? 'Zum Beispiel: „Die Brille liegt auf dem Nachttisch.“'
+      : 'Zum Beispiel: „Wo ist meine Brille?“';
+    document.body.dataset.modus = m;
+    if (hoerenGeht) hoere(); else tippen();
+  }
+
+  function hoere() {
+    stoppeHoeren();
+    const r = new SR();
+    erkennung = r;
+    r.lang = 'de-DE';
+    r.interimResults = true;
+    r.continuous = false;
+    r.maxAlternatives = 1;
+    let text = '', fehler = null;
+    const notbremse = setTimeout(() => { try { r.stop(); } catch (_) { /* schon beendet */ } }, 20000);
+    r.onresult = ev => {
+      text = Array.from(ev.results).map(x => x[0].transcript).join(' ').trim();
+      $('#hoeren-text').textContent = text;
+    };
+    r.onerror = ev => { fehler = ev.error; };
+    r.onend = () => {
+      clearTimeout(notbremse);
+      if (erkennung !== r) return;
+      erkennung = null;
+      ton(440);
+      if (fehler && GRUND[fehler]) {
+        if (fehler !== 'network') hoerenGeht = false;
+        return tippen(GRUND[fehler]);
+      }
+      if (text) verarbeite(text);
+      else { zeige('nichts'); sage('Ich habe nichts gehört. Bitte noch einmal.'); }
+    };
+    $('#hoeren-text').textContent = '';
+    zeige('hoeren');
+    try { r.start(); ton(880); } catch (_) { erkennung = null; tippen(); }
+  }
+
+  function stoppeHoeren() {
+    if (!erkennung) return;
+    const r = erkennung;
+    erkennung = null;
+    try { r.abort(); } catch (_) { /* schon beendet */ }
+  }
+
+  function tippen(grund) {
+    stoppeHoeren();
+    const g = $('#tippen-grund');
+    g.textContent = grund ? grund + ' Sie können stattdessen tippen.' : '';
+    g.hidden = !grund;
+    $('#eingabe').value = '';
+    zeige('tippen');
+    ton(660);
+    if (grund) sage(grund + ' Sie können stattdessen tippen.');
+  }
+
+  function verarbeite(text) {
+    return modus === 'ablegen' ? ablegen(text) : finde(text);
+  }
+
+  /* Ablegen */
+
+  async function ablegen(text) {
+    const p = zerlege(text);
+    const alt = p.sicher ? findeDoppelt(p.gegenstand, await alle()) : null;
+    if (!alt) return speichere(p, text, null);
+    offen = { p, text, alt };
+    const frage = rueckfrage(alt, p.genus);
+    $('#frage-text').textContent = frage;
+    $('#frage-bisher').textContent = 'Bisher: ' + (alt.ort || ohneSchluss(alt.originalsatz));
+    zeige('frage');
+    sage(frage);
+  }
+
+  async function speichere(p, text, alt) {
+    const jetzt = new Date().toISOString();
+    const e = alt
+      ? {
+          ...alt,
+          gegenstand: p.gegenstand.length > alt.gegenstand.length ? p.gegenstand : alt.gegenstand,
+          ort: p.ort,
+          originalsatz: text,
+          foto: null,
+          erstellt: jetzt,
+          verlauf: [{ ort: alt.ort || ohneSchluss(alt.originalsatz), datum: alt.erstellt }, ...(alt.verlauf || [])].slice(0, 10)
+        }
+      : { id: neueId(), gegenstand: p.gegenstand, ort: p.ort, originalsatz: text, foto: null, erstellt: jetzt, verlauf: [] };
+    await lege(e);
+    if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+    letzter = { id: e.id, vorher: alt };
+    const satz = 'Gespeichert: ' + (p.sicher ? `${e.gegenstand}, ${e.ort}` : ohneSchluss(text));
+    $('#ok-text').textContent = satz;
+    $('#ok-hinweis').hidden = p.sicher;
+    zeigeFoto(null);
+    $('#b-foto').textContent = 'Foto vom Ort';
+    zeige('ok');
+    ton(990, 200);
+    sage(satz);
+  }
+
+  function zeigeFoto(blob) {
+    const img = $('#ok-foto');
+    if (fotoUrl) URL.revokeObjectURL(fotoUrl);
+    fotoUrl = blob ? URL.createObjectURL(blob) : null;
+    img.hidden = !blob;
+    if (blob) img.src = fotoUrl; else img.removeAttribute('src');
+  }
+
+  async function nochmal() {
+    if (letzter) {
+      if (letzter.vorher) await lege(letzter.vorher);
+      else await entferne(letzter.id);
+      letzter = null;
+    }
+    starte('ablegen');
+  }
+
+  function ladeBild(datei) {
+    return new Promise((ok, fehler) => {
+      const url = URL.createObjectURL(datei);
+      const img = new Image();
+      img.onload = () => { URL.revokeObjectURL(url); ok(img); };
+      img.onerror = () => { URL.revokeObjectURL(url); fehler(new Error('Bild')); };
+      img.src = url;
+    });
+  }
+
+  async function verkleinere(datei) {
+    const img = await ladeBild(datei);
+    const f = Math.min(1, 1200 / img.naturalWidth);
+    const c = document.createElement('canvas');
+    c.width = Math.round(img.naturalWidth * f);
+    c.height = Math.round(img.naturalHeight * f);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    return new Promise(ok => c.toBlob(ok, 'image/jpeg', 0.7));
+  }
+
+  async function fotoGewaehlt(datei) {
+    if (!datei || !letzter) return;
+    try {
+      const blob = await verkleinere(datei);
+      const e = await hole(letzter.id);
+      e.foto = blob;
+      await lege(e);
+      zeigeFoto(blob);
+      $('#b-foto').textContent = 'Anderes Foto';
+      ton(990, 200);
+      sage('Foto gespeichert.');
+    } catch (_) {
+      sage('Das Foto hat leider nicht geklappt.');
+    }
+  }
+
+  /* Suchen */
+
+  async function finde(text) {
+    const treffer = suche(text, await alle());
+    $('#frage-echo').textContent = `Ihre Frage: „${ohneSchluss(text)}“`;
+    if (!treffer.length) {
+      leere('#treffer').append(el('p', 'ergebnis', 'Dazu habe ich nichts gespeichert.'));
+      zeige('treffer');
+      ton(330, 250);
+      sage('Dazu habe ich nichts gespeichert.');
+    } else if (treffer.length === 1) {
+      zeigeTreffer(treffer[0]);
+    } else {
+      const box = leere('#treffer');
+      box.append(el('p', 'ergebnis', 'Ich habe mehrere Einträge gefunden. Welchen meinen Sie?'));
+      for (const e of treffer) {
+        const b = el('button', 'karte wahl');
+        b.type = 'button';
+        b.append(el('span', 'ding', anzeigeName(e)));
+        if (e.ort) b.append(el('span', 'ort', grossAnfang(e.ort)));
+        b.addEventListener('click', () => zeigeTreffer(e));
+        box.append(b);
+      }
+      zeige('treffer');
+      ton(660);
+      sage(`Ich habe mehrere Einträge gefunden: ${treffer.map(anzeigeName).join(', oder ')}. Welchen meinen Sie?`);
+    }
+  }
+
+  function zeigeTreffer(e) {
+    const box = leere('#treffer');
+    const k = el('article', 'karte');
+    k.append(el('p', 'ding', anzeigeName(e)));
+    if (e.ort) k.append(el('p', 'ort', grossAnfang(e.ort)));
+    if (e.foto) {
+      const img = el('img', 'foto');
+      img.alt = 'Foto vom Ort';
+      img.src = URL.createObjectURL(e.foto);
+      img.onload = () => URL.revokeObjectURL(img.src);
+      k.append(img);
+    }
+    k.append(el('p', 'klein', 'Gespeichert am ' + datum(e.erstellt)));
+    if (e.verlauf && e.verlauf[0]) k.append(el('p', 'klein', vorherSatz(e, e.verlauf[0])));
+    box.append(k);
+    zeige('treffer');
+    ton(990, 200);
+    sage(antwortSatz(e));
+  }
+
+  /* Alle Einträge */
+
+  async function zeigeListe(meldung) {
+    const liste = (await alle()).sort((a, b) => anzeigeName(a).localeCompare(anzeigeName(b), 'de'));
+    const ul = leere('#liste');
+    for (const e of liste) {
+      const li = el('li', 'karte');
+      li.append(el('p', 'ding', anzeigeName(e)));
+      if (e.ort) li.append(el('p', 'ort-klein', grossAnfang(e.ort)));
+      li.append(el('p', 'klein', 'Gespeichert am ' + datum(e.erstellt) + (e.foto ? ' · mit Foto' : '')));
+      const b = el('button', 'knopf loeschen', 'Löschen');
+      b.type = 'button';
+      b.addEventListener('click', () => frageLoeschen(e));
+      li.append(b);
+      ul.append(li);
+    }
+    const anzahl = liste.length === 0 ? 'Noch keine Einträge gespeichert.'
+      : liste.length === 1 ? 'Ein Eintrag gespeichert.' : `${liste.length} Einträge gespeichert.`;
+    $('#liste-anzahl').textContent = anzahl;
+    melde(meldung || '');
+    zeige('liste');
+    if (!meldung) sage(anzahl);
+  }
+
+  function melde(text) {
+    const m = $('#liste-meldung');
+    m.textContent = text;
+    m.hidden = !text;
+    if (text) sage(text);
+  }
+
+  function frageLoeschen(e) {
+    zuLoeschen = e;
+    const frage = `Wirklich löschen: ${anzeigeName(e)}?`;
+    $('#loeschen-text').textContent = frage;
+    zeige('loeschen');
+    sage(frage);
+  }
+
+  async function loeschen() {
+    if (!zuLoeschen) return;
+    await entferne(zuLoeschen.id);
+    zuLoeschen = null;
+    ton(440);
+    zeigeListe('Gelöscht.');
+  }
+
+  /* Datensicherung */
+
+  const alsDataUrl = blob => new Promise((ok, fehler) => {
+    const r = new FileReader();
+    r.onload = () => ok(r.result);
+    r.onerror = () => fehler(r.error);
+    r.readAsDataURL(blob);
+  });
+
+  async function sichern() {
+    const liste = await alle();
+    const daten = {
+      app: "Wo ist's?",
+      autorin: 'Diana Ziegler',
+      version: 1,
+      exportiert: new Date().toISOString(),
+      eintraege: await Promise.all(liste.map(async e => ({ ...e, foto: e.foto ? await alsDataUrl(e.foto) : null })))
+    };
+    const name = `wo-ists-sicherung-${new Date().toISOString().slice(0, 10)}.json`;
+    const datei = new File([JSON.stringify(daten)], name, { type: 'application/json' });
+    if (navigator.canShare && navigator.canShare({ files: [datei] })) {
+      try {
+        await navigator.share({ files: [datei], title: "Wo ist's? Sicherung" });
+        return melde('Sicherung erstellt.');
+      } catch (err) {
+        if (err.name === 'AbortError') return melde('Sicherung abgebrochen.');
+      }
+    }
+    const a = el('a');
+    a.href = URL.createObjectURL(datei);
+    a.download = name;
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    melde(`Sicherung gespeichert: ${liste.length === 1 ? 'ein Eintrag' : liste.length + ' Einträge'}.`);
+  }
+
+  async function laden(datei) {
+    if (!datei) return;
+    try {
+      const d = JSON.parse(await datei.text());
+      const roh = Array.isArray(d) ? d : d && d.eintraege;
+      if (!Array.isArray(roh)) throw new Error('Format');
+      let n = 0;
+      for (const x of roh) {
+        if (!x || !x.id || typeof x.originalsatz !== 'string') continue;
+        const foto = typeof x.foto === 'string' && /^data:image\/(jpeg|png|webp);base64,/.test(x.foto)
+          ? await (await fetch(x.foto)).blob() : null;
+        await lege({
+          id: String(x.id),
+          gegenstand: String(x.gegenstand || ''),
+          ort: String(x.ort || ''),
+          originalsatz: x.originalsatz,
+          foto,
+          erstellt: x.erstellt || new Date().toISOString(),
+          verlauf: Array.isArray(x.verlauf)
+            ? x.verlauf.filter(v => v && v.ort).map(v => ({ ort: String(v.ort), datum: v.datum || null })) : []
+        });
+        n++;
+      }
+      zeigeListe(n === 1 ? 'Ein Eintrag geladen.' : `${n} Einträge geladen.`);
+    } catch (_) {
+      melde('Diese Datei kann ich nicht lesen.');
+    }
+  }
+
+  /* Knöpfe */
+
+  const klick = (s, fn) => $(s).addEventListener('click', fn);
+  klick('#b-ablegen', () => starte('ablegen'));
+  klick('#b-suchen', () => starte('suchen'));
+  klick('#b-liste', () => { entsperre(); zeigeListe(); });
+  klick('#b-fertig', () => {
+    const text = $('#eingabe').value.trim();
+    if (!text) { sage('Bitte erst etwas eingeben.'); $('#eingabe').focus(); return; }
+    ton(440);
+    verarbeite(text);
+  });
+  klick('#b-ja', () => { if (offen) speichere(offen.p, offen.text, offen.alt); offen = null; });
+  klick('#b-nein', () => { if (offen) speichere(offen.p, offen.text, null); offen = null; });
+  klick('#b-stimmt', () => { ton(990, 120); sage('Alles klar.'); zumStart(); });
+  klick('#b-nochmal', nochmal);
+  klick('#b-foto', () => $('#foto-input').click());
+  $('#foto-input').addEventListener('change', ev => { fotoGewaehlt(ev.target.files[0]); ev.target.value = ''; });
+  klick('#b-loeschen-ja', loeschen);
+  klick('#b-export', sichern);
+  klick('#b-import', () => $('#import-input').click());
+  $('#import-input').addEventListener('change', ev => { laden(ev.target.files[0]); ev.target.value = ''; });
+
+  document.addEventListener('click', ev => {
+    const b = ev.target.closest('[data-aktion]');
+    if (!b) return;
+    const a = b.dataset.aktion;
+    if (a === 'start') zumStart();
+    else if (a === 'tippen') tippen();
+    else if (a === 'nochmal') starte(modus);
+    else if (a === 'suchen') starte('suchen');
+    else if (a === 'liste') zeigeListe();
+  });
+
+  if ('speechSynthesis' in window) {
+    waehleStimme();
+    speechSynthesis.addEventListener('voiceschanged', waehleStimme);
+  }
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('service-worker.js').catch(() => {}));
+  }
+}
