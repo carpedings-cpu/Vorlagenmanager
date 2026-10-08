@@ -80,6 +80,14 @@ Parameter aus dem Auftrag:
 | `cancellation_type` | `free_cancellation`, wenn im Auftrag gesetzt |
 | `currency` | `EUR`, `user_country_code` `de`, `user_locale` `de` |
 
+**Das Preislimit nicht an die Suche geben.** Kein `price.maximum`, auch wenn
+das Feld "pro Nacht" verspricht. Booking rechnet es gegen den Gesamtpreis für
+alle Zimmer und alle Nächte, und damit filtert es bei zwei Zimmern doppelt so
+scharf wie gewollt. In Neckarsulm lieferte `price.maximum: 100` keinen einzigen
+Treffer, obwohl vier Häuser zwischen 67 und 99 EUR je Zimmer und Nacht frei
+waren. Das Limit wendet die Auswertung an, und die rechnet den Preis vorher
+auf Zimmer und Nacht herunter.
+
 Zu wenige Treffer? Erst den Radius erhöhen, dann den Preis, zuletzt die
 Bewertung. Die Bewertung ist das Kriterium, das Diana ausdrücklich gesetzt
 hat, also das letzte, das fällt, und ein Absenken wird gesagt.
