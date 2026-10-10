@@ -273,6 +273,22 @@ def kostenuebernahme(
         (vorlagen / "dokument.html").read_text(encoding="utf-8"), werte_html
     )
 
+    # Dieselbe Erklärung als formatierter Mailtext. Das ist der Weg in den
+    # Entwurf: Ein PDF-Anhang müsste Zeichen für Zeichen durch das
+    # Postfach-Werkzeug, bei 30 KB sind das 40.000 Zeichen, und ein einziger
+    # Fehler macht das Dokument unbrauchbar, ohne dass es jemand merkt.
+    wort = (abs_["firma"].split() or [""])[0]
+    werte_mail_html = dict(werte_html)
+    werte_mail_html.update({
+        "wortmarke": e(wort),
+        "ust_klammer": f" (USt-IdNr. {e(abs_['ust_id'])})" if abs_["ust_id"] else "",
+        "ust_punkt": f" · USt-IdNr. {e(abs_['ust_id'])}" if abs_["ust_id"] else "",
+        "telefon_html": f"Tel. {e(abs_['telefon'])}<br>" if abs_["telefon"] else "",
+    })
+    mail_html = ersetze_in_markdown(
+        (vorlagen / "mail.html").read_text(encoding="utf-8"), werte_mail_html
+    )
+
     werte_mail = {
         **sig,
         "referenz_betreff": f"Buchung {bestaetigung} " if bestaetigung else "",
@@ -299,6 +315,7 @@ def kostenuebernahme(
         "betreff": betreff,
         "text": text,
         "html": dokument,
+        "mail_html": mail_html,
         "dateiname": dateiname,
         "gesamt": round(zimmerkosten + parkkosten, 2),
         "hinweise": hinweise,

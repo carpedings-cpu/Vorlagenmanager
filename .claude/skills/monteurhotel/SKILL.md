@@ -237,15 +237,28 @@ Preis, und **Dianas Go**. Fehlt eines, nichts anlegen.
        --an <hotel@...> --json <scratchpad>/kosten_<kurz>.json
    ```
 
-   Ergebnis ist ein einseitiges PDF im KPC-Design unter `hotels/post/` und
-   der Begleittext. Hinweise auf stderr (fehlende Pflichtangaben nach § 35a
-   GmbHG, Gästezahl passt nicht zur Zimmerzahl) gehören in die Antwort an
-   Diana, nicht unter den Tisch.
-4. **Prüfen, bevor es ins Postfach geht**: eine Seite, Summe gleich Preis mal
-   Zimmer mal Nächte, Namen richtig geschrieben.
+   Ergebnis: die Erklärung als formatierter Mailtext (`html` in der JSON),
+   dazu ein einseitiges PDF im KPC-Design unter `hotels/post/`. Hinweise auf
+   stderr (fehlende Pflichtangaben nach § 35a GmbHG, Gästezahl passt nicht
+   zur Zimmerzahl) gehören in die Antwort an Diana, nicht unter den Tisch.
+4. **Prüfen, bevor es ins Postfach geht**: Summe gleich Preis mal Zimmer mal
+   Nächte, Namen richtig geschrieben, Buchungsnummer wie in der Hotelmail.
 5. **Antwortentwurf im selben Verlauf** anlegen: `create_draft` mit
-   `replyToMessageId` auf die Nachricht des Hotels, das PDF als Anhang
-   (base64, `application/pdf`). Wieder: nicht abschicken.
+   `replyToMessageId` auf die Nachricht des Hotels, Betreff aus der JSON,
+   den Mailtext als `htmlBody`. **Das PDF nicht anhängen.** Das Werkzeug
+   nimmt Anhänge nur als base64 im Aufruf; bei 30 KB sind das über 40.000
+   Zeichen, ein einziger Übertragungsfehler zerstört das Dokument, und
+   prüfen lässt sich der Anhang danach nicht. Die Erklärung steht vollständig
+   im Mailtext, das ist Textform und genügt. Das PDF bekommt Diana als Datei,
+   falls ein Hotel ausdrücklich eins verlangt.
+6. Nach dem Anlegen den Entwurf mit `get_draft` zurücklesen und Betrag,
+   Namen und Zeitraum gegen die JSON prüfen. Wieder: nicht abschicken.
+
+**Absender-Postfach.** Entwürfe landen in dem Postfach, das in der Session
+verbunden ist. Ist das eine private Adresse und nicht `absender.email`, geht
+die Kostenübernahme von dort raus, und ein Hotel kann eine Zahlungszusage
+von einer Privatadresse zu Recht ablehnen. Das bei jeder Kostenübernahme
+dazusagen, solange es so ist.
 
 ### 8. Festhalten
 

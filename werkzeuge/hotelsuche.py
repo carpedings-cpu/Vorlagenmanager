@@ -353,7 +353,11 @@ def befehl_kostenuebernahme(args: argparse.Namespace) -> int:
     print(f"Gesamt voraussichtlich: {hotelpost.euro(ergebnis['gesamt'])} EUR\n")
     _ausgeben(
         ergebnis["betreff"], ergebnis["text"], args,
-        {"anhang": str(pdf_pfad if hat_pdf else html_pfad), "hotel": args.hotel},
+        {
+            "anhang": str(pdf_pfad if hat_pdf else html_pfad),
+            "hotel": args.hotel,
+            "html": ergebnis["mail_html"],
+        },
     )
     return 0
 

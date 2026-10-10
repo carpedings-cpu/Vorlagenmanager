@@ -1,0 +1,23 @@
+<div style="font-family:'Roboto Condensed','Arial Narrow',Arial,sans-serif;font-size:14px;line-height:1.45;color:#2d2926;max-width:640px">
+<div style="border-bottom:2px solid #c8a882;padding-bottom:6px;margin-bottom:14px"><span style="font-size:26px;font-weight:bold;color:#6b5040">{{wortmarke}}</span></div>
+<p>Guten Tag,</p>
+<p>vielen Dank für Ihre Bestätigung. Hiermit bestätigt die {{firma}} die Übernahme der Kosten für die folgende Buchung. Die Übernachtung erfolgt ausschließlich aus beruflichen Gründen im Auftrag der {{firma}}.</p>
+<p style="font-size:17px;font-weight:bold;color:#6b5040;margin:18px 0 8px">Kostenübernahmeerklärung</p>
+<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;font-size:14px">
+<tr><td bgcolor="#f4ede3" style="background-color:#f4ede3;color:#6b5040;padding:6px 10px;border-bottom:1px solid #c8a882;width:170px;vertical-align:top">Hotel</td><td style="padding:6px 10px;border-bottom:1px solid #c8a882">{{hotel}}</td></tr>
+{{?bestaetigung}}
+<tr><td bgcolor="#f4ede3" style="background-color:#f4ede3;color:#6b5040;padding:6px 10px;border-bottom:1px solid #c8a882;vertical-align:top">Ihre Buchung</td><td style="padding:6px 10px;border-bottom:1px solid #c8a882">{{bestaetigung}}</td></tr>
+{{/bestaetigung}}
+<tr><td bgcolor="#f4ede3" style="background-color:#f4ede3;color:#6b5040;padding:6px 10px;border-bottom:1px solid #c8a882;vertical-align:top">Gäste</td><td style="padding:6px 10px;border-bottom:1px solid #c8a882">{{gaeste_html}}</td></tr>
+<tr><td bgcolor="#f4ede3" style="background-color:#f4ede3;color:#6b5040;padding:6px 10px;border-bottom:1px solid #c8a882;vertical-align:top">Zeitraum</td><td style="padding:6px 10px;border-bottom:1px solid #c8a882">Anreise {{anreise}}, Abreise {{abreise}} ({{naechte}} Nächte)</td></tr>
+<tr><td bgcolor="#f4ede3" style="background-color:#f4ede3;color:#6b5040;padding:6px 10px;border-bottom:1px solid #c8a882;vertical-align:top">Zimmer</td><td style="padding:6px 10px;border-bottom:1px solid #c8a882">{{zimmer}} Einzelzimmer mit Dusche und WC</td></tr>
+<tr><td bgcolor="#f4ede3" style="background-color:#f4ede3;color:#6b5040;padding:6px 10px;border-bottom:1px solid #c8a882;vertical-align:top">Vereinbarter Preis</td><td style="padding:6px 10px;border-bottom:1px solid #c8a882">{{preis}} EUR je Zimmer und Nacht inklusive Frühstück</td></tr>
+<tr><td bgcolor="#f4ede3" style="background-color:#f4ede3;color:#6b5040;padding:6px 10px;border-bottom:1px solid #c8a882;vertical-align:top">Parkplatz</td><td style="padding:6px 10px;border-bottom:1px solid #c8a882">{{parkplatz_zeile}}</td></tr>
+<tr><td bgcolor="#f4ede3" style="background-color:#f4ede3;color:#6b5040;padding:6px 10px;border-bottom:2px solid #c8a882;font-weight:bold">Voraussichtlich gesamt</td><td style="padding:6px 10px;border-bottom:2px solid #c8a882;font-weight:bold">{{gesamt}} EUR</td></tr>
+</table>
+<p style="margin-top:14px"><b style="color:#6b5040">Übernommen:</b> Übernachtung im Einzelzimmer, Frühstück, Parkplatz am Haus sowie Beherbergungs- oder Übernachtungsteuer, soweit sie anfällt.<br><b style="color:#6b5040">Nicht übernommen:</b> Getränke, Minibar, Speisen außer dem Frühstück, Telefon, Wäsche und sonstige persönliche Ausgaben. Diese begleichen die Gäste vor Ort.</p>
+<p><b style="color:#6b5040">Rechnung:</b> bitte auf {{firma}}, {{strasse}}, {{plz}} {{ort_firma}}{{ust_klammer}}, per E-Mail an <b>{{rechnung_email}}</b> mit dem Vermerk „{{rechnungsvermerk}}“. Zahlung per Überweisung nach Rechnungseingang. Verschiebt sich der Aufenthalt, stimmen wir den neuen Zeitraum vorab mit Ihnen ab; für die tatsächlich in Anspruch genommenen Nächte gelten die vereinbarten Konditionen.</p>
+<p>Freundliche Grüße</p>
+<p>{{absender}}<br>{{funktion}}, {{firma}}<br>{{telefon_html}}{{email}}</p>
+<div style="border-top:1px solid #c8a882;margin-top:18px;padding-top:6px;font-size:11px;color:#6b5040">{{firma}} · {{strasse}} · {{plz}} {{ort_firma}} · Sitz: {{ort_firma}} · {{register_html}}{{ust_punkt}} · Geschäftsführung: {{geschaeftsfuehrung}}</div>
+</div>

@@ -194,6 +194,32 @@ class Kostenuebernahme(unittest.TestCase):
     def test_ohne_unterschriftsbild_der_vermerk(self):
         self.assertIn("ohne Unterschrift gültig", self._erzeuge()["html"])
 
+    def test_mailtext_enthaelt_die_ganze_erklaerung(self):
+        """Der Entwurf trägt die Erklärung im Text, nicht nur als Anhang."""
+        mail = self._erzeuge()["mail_html"]
+        for teil in ("Kostenübernahmeerklärung", "528,00 EUR", "88,00 EUR",
+                     "Karl Beispiel", "Emil Beispiel", "aus beruflichen Gründen",
+                     "rechnung@example.com", "HRB 9999", "Max Mustermann, Eva Musterfrau"):
+            self.assertIn(teil, mail)
+        self.assertNotIn("{{", mail)
+
+    def test_mailtext_ohne_stylesheet_und_ohne_schriftdatei(self):
+        """Outlook ignoriert style-Blöcke, und die Schrift sprengt den Entwurf."""
+        mail = self._erzeuge()["mail_html"]
+        self.assertNotIn("<style", mail)
+        self.assertNotIn("base64", mail)
+        self.assertLess(len(mail), 8000)
+
+    def test_mailtext_hinterlegung_ueberlebt_gmail(self):
+        """Gmail filtert die Kurzschreibweise background: aus dem Entwurf.
+
+        Gesehen am ersten Musterentwurf: Die sandfarbene linke Spalte war weg.
+        background-color und bgcolor bleiben stehen.
+        """
+        mail = self._erzeuge()["mail_html"]
+        self.assertNotIn("background:", mail)
+        self.assertIn('bgcolor="#f4ede3"', mail)
+
     def test_betreff_mit_buchungsnummer(self):
         self.assertIn("Buchung VS-1013", self._erzeuge()["betreff"])
 
