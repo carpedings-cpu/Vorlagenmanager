@@ -185,10 +185,26 @@ def befehl_auftrag(args: argparse.Namespace) -> int:
     return 0
 
 
+def _einlesen(pfad: str) -> list[dict]:
+    """Liest eine Trefferdatei und erkennt am Format, aus welchem Portal sie ist.
+
+    Trivago nennt das Haus `accommodation_name`, Booking `name`. Daran hängt,
+    ob die Treffer vorher umgewandelt werden müssen; ein stumpfes Einlesen
+    liefert sonst eine Liste von Häusern ohne Namen und ohne Preis.
+    """
+    roh = json.loads(Path(pfad).read_text(encoding="utf-8"))
+    liste = roh.get("accommodations", roh) if isinstance(roh, dict) else roh
+    if liste and isinstance(liste[0], dict) and "accommodation_name" in liste[0]:
+        return hotels.normalisiere_trivago(liste)
+    return liste
+
+
 def befehl_auswerten(args: argparse.Namespace) -> int:
     auftrag = json.loads(Path(args.auftrag).read_text(encoding="utf-8"))
-    roh = json.loads(Path(args.treffer).read_text(encoding="utf-8"))
-    rohtreffer = roh.get("accommodations", roh) if isinstance(roh, dict) else roh
+    pfade = args.treffer if isinstance(args.treffer, list) else [args.treffer]
+    rohtreffer = []
+    for pfad in pfade:
+        rohtreffer.extend(_einlesen(pfad))
 
     baustelle = dict(auftrag["baustelle"])
     baustelle["max_entfernung_km"] = auftrag["suche"]["radius_km"]
@@ -200,6 +216,12 @@ def befehl_auswerten(args: argparse.Namespace) -> int:
         zimmer=auftrag["zimmer"],
         anzahl_naechte=auftrag["zeitraum"]["naechte"],
     )
+    if len(pfade) > 1:
+        # Dasselbe Haus steht jetzt mehrfach in der Liste, einmal je Quelle.
+        # Zusammenfassen und danach neu punkten, sonst stimmt die Rangfolge
+        # nicht mehr zur zusammengefassten Zeile.
+        treffer = hotels.zusammenfuehren(treffer)
+        treffer = hotels.nachpunkten(treffer, baustelle)
 
     print(hotels.uebersicht(treffer, anzahl=args.anzahl))
 
@@ -384,9 +406,13 @@ def main() -> int:
     p_auftrag.add_argument("--json", help="Auftrag zusätzlich als JSON ablegen")
     p_auftrag.set_defaults(funktion=befehl_auftrag)
 
-    p_aus = unter.add_parser("auswerten", help="Booking-Treffer bewerten und sortieren")
+    p_aus = unter.add_parser("auswerten", help="Treffer bewerten und sortieren")
     p_aus.add_argument("auftrag", help="JSON aus dem Befehl auftrag")
-    p_aus.add_argument("treffer", help="JSON-Antwort der Hotelsuche")
+    p_aus.add_argument(
+        "treffer",
+        nargs="+",
+        help="eine oder mehrere JSON-Antworten; Trivago wird am Format erkannt",
+    )
     p_aus.add_argument("--anzahl", type=int, default=5)
     p_aus.add_argument("--ids", action="store_true", help="Hotel-IDs mit ausgeben")
     p_aus.set_defaults(funktion=befehl_auswerten)

@@ -16,6 +16,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "werkzeuge"))
 
+import hotels  # noqa: E402
 from hotels import (  # noqa: E402
     Treffer,
     auswerten,
@@ -660,3 +661,174 @@ class EinsatzkostenStattNurZimmerpreis(unittest.TestCase):
         fern = self._treffer("Fern und teuer", 19.0, 99.0)
         text = kostentabelle([nah, fern], 2, 3, self.KRITERIEN)
         self.assertNotIn("günstiger als Platz 1", text)
+
+
+class ZweiteQuelle(unittest.TestCase):
+    """Booking allein lässt Häuser unter den Tisch fallen.
+
+    Der Beweisfall ist die Villa Sulmana in Neckarsulm: Bei Booking steht sie
+    ohne jede Bewertung, bei Trivago mit 8,1 aus 430 Stimmen. Mit nur einer
+    Quelle wäre sie als unbewertet durchgelaufen oder ganz ausgeschieden.
+    """
+
+    TRIVAGO = [
+        {
+            "accommodation_name": "Hotel Villa Sulmana",
+            "price_per_stay": "564€",
+            "price_per_night": "188€",
+            "advertisers": "Booking.com",
+            "review_rating": "8.1",
+            "review_count": "430",
+            "hotel_rating": 0,
+            "country_city": "Neckarsulm, Deutschland",
+            "top_amenities": "WLAN in Lobby, Parkplätze",
+            "accommodation_url": "https://trivago.example/sulmana",
+            "latitude": 49.185100,
+            "longitude": 9.221879,
+        }
+    ]
+
+    def test_preis_mit_tausenderpunkt_und_euro_zeichen(self):
+        umgewandelt = hotels.normalisiere_trivago(
+            [dict(self.TRIVAGO[0], price_per_stay="1.257€")]
+        )
+        self.assertEqual(umgewandelt[0]["price"]["book"], 1257.0)
+
+    def test_bewertungszahl_mit_tausenderkomma(self):
+        umgewandelt = hotels.normalisiere_trivago(
+            [dict(self.TRIVAGO[0], review_count="2,750")]
+        )
+        self.assertEqual(umgewandelt[0]["rating"]["number_of_reviews"], 2750)
+
+    def test_quelle_nennt_das_buchende_portal(self):
+        umgewandelt = hotels.normalisiere_trivago(
+            [dict(self.TRIVAGO[0], advertisers="Agoda")]
+        )
+        self.assertEqual(umgewandelt[0]["quelle"], "Trivago/Agoda")
+
+    def test_fehlende_bewertung_wird_nicht_zu_null(self):
+        ohne = dict(self.TRIVAGO[0])
+        ohne.pop("review_rating")
+        umgewandelt = hotels.normalisiere_trivago([ohne])
+        self.assertNotIn("rating", umgewandelt[0])
+
+
+class ParkplatzMitUmlaut(unittest.TestCase):
+    """"Parkplätze" ist dasselbe wie "Parkplatz", nur anders geschrieben.
+
+    Trivago schreibt den Plural, Booking den Singular. Die Prüfung verglich
+    kleingeschriebene Zeichenketten, und "parkplatz" steckt nicht in
+    "parkplätze". Ein Haus mit Hofparkplatz galt dadurch als eines ohne und
+    flog mit "kein Parkplatz angegeben" aus der Liste.
+    """
+
+    def test_plural_mit_umlaut_wird_erkannt(self):
+        urteil = beurteile_parkplatz(["WLAN in Lobby", "Parkplätze"])
+        self.assertNotEqual(urteil.status, "kritisch")
+
+    def test_strassenparkplatz_bleibt_kritisch(self):
+        urteil = beurteile_parkplatz(["Parkplätze an der Straße"])
+        self.assertEqual(urteil.status, "kritisch")
+
+    def test_eigener_stellplatz_schlaegt_den_allgemeinen_begriff(self):
+        urteil = beurteile_parkplatz(["Parkplätze", "Privatparkplatz"])
+        self.assertEqual(urteil.status, "ok")
+
+
+class QuellenZusammenfuehren(unittest.TestCase):
+    """Dasselbe Haus aus zwei Quellen wird ein Eintrag, nicht zwei."""
+
+    @staticmethod
+    def _roh(name, preis, bewertung, stimmen, quelle, lat=49.1851, lon=9.2219):
+        eintrag = {
+            "name": name,
+            "id": 0,
+            "url": "",
+            "price": {"book": preis},
+            "facilities": ["Privatparkplatz"],
+            "location": {
+                "address": "",
+                "city_name": "Neckarsulm",
+                "coordinates": {"latitude": lat, "longitude": lon},
+            },
+            "quelle": quelle,
+        }
+        if bewertung is not None:
+            eintrag["rating"] = {
+                "review_score": bewertung,
+                "number_of_reviews": stimmen,
+                "stars": 3,
+            }
+        return eintrag
+
+    BAUSTELLE = {"kurzname": "Lidl", "koordinaten": {"lat": 49.1835, "lon": 9.2367}}
+
+    def _treffer(self, rohe):
+        return hotels.auswerten(
+            rohe, self.BAUSTELLE, zimmer=2, anzahl_naechte=3,
+            kriterien={"mindestbewertung": 8.0, "max_preis_pro_nacht": 100.0,
+                       "max_entfernung_km": 12.0, "mindestanzahl_bewertungen": 0},
+        )
+
+    def test_guenstigerer_preis_gewinnt(self):
+        treffer = self._treffer([
+            self._roh("Warum ins Hotel", 633.6, 8.1, 307, "Booking"),
+            self._roh("Warum ins Hotel", 619.0, 8.1, 307, "Trivago/Agoda"),
+        ])
+        zusammen = hotels.zusammenfuehren(treffer)
+        self.assertEqual(len(zusammen), 1)
+        self.assertEqual(zusammen[0].quelle, "Trivago/Agoda")
+        self.assertAlmostEqual(zusammen[0].preisvorteil, 2.43, places=2)
+
+    def test_bewertung_kommt_aus_der_quelle_mit_mehr_stimmen(self):
+        """Nicht die bessere Note gewinnt, sondern die breitere Grundlage."""
+        treffer = self._treffer([
+            self._roh("Villa Sulmana", 564.0, None, 0, "Booking"),
+            self._roh("Villa Sulmana", 570.0, 8.1, 430, "Trivago/Booking.com"),
+        ])
+        zusammen = hotels.zusammenfuehren(treffer)
+        self.assertEqual(len(zusammen), 1)
+        self.assertTrue(zusammen[0].hat_bewertung)
+        self.assertEqual(zusammen[0].anzahl_bewertungen, 430)
+        self.assertIn("Trivago", zusammen[0].bewertung_quelle)
+
+    def test_die_schlechtere_note_mit_mehr_stimmen_gewinnt_auch(self):
+        treffer = self._treffer([
+            self._roh("Adler", 400.0, 9.4, 12, "Booking"),
+            self._roh("Adler", 410.0, 7.9, 900, "Trivago/HRS"),
+        ])
+        zusammen = hotels.zusammenfuehren(treffer)
+        self.assertAlmostEqual(zusammen[0].bewertung, 7.9)
+
+    def test_verschiedene_haeuser_bleiben_getrennt(self):
+        treffer = self._treffer([
+            self._roh("Hotel Post", 400.0, 8.2, 100, "Booking"),
+            self._roh("Hotel Adler", 410.0, 8.3, 120, "Trivago/Agoda"),
+        ])
+        self.assertEqual(len(hotels.zusammenfuehren(treffer)), 2)
+
+    def test_gleicher_name_weit_auseinander_bleibt_getrennt(self):
+        """Zwei "Hotel Krone" in einem Umkreis sind zwei Häuser."""
+        treffer = self._treffer([
+            self._roh("Hotel Krone", 400.0, 8.2, 100, "Booking"),
+            self._roh("Hotel Krone", 410.0, 8.3, 120, "Trivago/Agoda",
+                      lat=49.2100, lon=9.2500),
+        ])
+        self.assertEqual(len(hotels.zusammenfuehren(treffer)), 2)
+
+    def test_ausschluss_wird_nach_dem_zusammenfuehren_neu_geprueft(self):
+        """Was bei einer Quelle rausfiel, kann mit der anderen durchgehen.
+
+        Die Villa Sulmana lag bei Booking über dem Limit und war unbewertet.
+        Mit dem Trivago-Preis und der Trivago-Bewertung erfüllt sie beides.
+        """
+        treffer = self._treffer([
+            self._roh("Villa Sulmana", 640.0, None, 0, "Booking"),
+            self._roh("Villa Sulmana", 564.0, 8.1, 430, "Trivago/Booking.com"),
+        ])
+        zusammen = hotels.nachpunkten(
+            hotels.zusammenfuehren(treffer), self.BAUSTELLE,
+            kriterien={"mindestbewertung": 8.0, "max_preis_pro_nacht": 100.0,
+                       "max_entfernung_km": 12.0},
+        )
+        self.assertTrue(zusammen[0].geeignet, zusammen[0].ausschluss)

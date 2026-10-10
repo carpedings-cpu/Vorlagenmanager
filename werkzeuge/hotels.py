@@ -216,15 +216,15 @@ PARKEN_EIGEN = (
     "privatparkplatz",
     "parken vor ort",
     "parkplatz inbegriffen",
-    "kostenlose parkplätze",
+    "kostenlose parkplatze",
     "kostenloser parkplatz",
-    "überdachte parkplätze",
+    "uberdachte parkplatze",
     "parkhaus",
     "tiefgarage",
     "garage",
 )
-PARKEN_NUR_STRASSE = ("parkplätze an der straße", "öffentliche parkplätze")
-PARKEN_ALLGEMEIN = ("parkplatz", "parken")
+PARKEN_NUR_STRASSE = ("parkplatze an der strasse", "offentliche parkplatze")
+PARKEN_ALLGEMEIN = ("parkplatz", "parkplatze", "parken", "stellplatz")
 
 
 @dataclass
@@ -237,13 +237,27 @@ class Parkurteil:
         return {"ok": "✅", "pruefen": "🔍", "kritisch": "⛔"}[self.status]
 
 
+def _umlautfrei(text: str) -> str:
+    """Kleinschreibung ohne Umlaute, Leerzeichen bleiben erhalten.
+
+    Nötig, weil jede Quelle anders schreibt: Booking nennt es "Parkplatz",
+    Trivago "Parkplätze". Der Umlaut ließ die Prüfung durchfallen, und ein
+    Haus mit Hofparkplatz galt als eines ohne.
+    """
+    zerlegt = unicodedata.normalize("NFKD", str(text).lower())
+    ohne = "".join(z for z in zerlegt if not unicodedata.combining(z))
+    for a, b in (("ß", "ss"), ("ä", "a"), ("ö", "o"), ("ü", "u")):
+        ohne = ohne.replace(a, b)
+    return ohne
+
+
 def beurteile_parkplatz(ausstattung: list[str]) -> Parkurteil:
     """Sagt, ob das Haus einen eigenen Stellplatz hat.
 
     Mehr gibt die Ausstattungsliste nicht her. Ob das Fahrzeug dort auch
     hineinpasst, klärt sich beim Haus und nicht in einer Datenbank.
     """
-    klein = [str(a).lower() for a in ausstattung]
+    klein = [_umlautfrei(a) for a in ausstattung]
 
     def enthaelt(begriffe: tuple[str, ...]) -> bool:
         return any(b in eintrag for eintrag in klein for b in begriffe)
@@ -280,6 +294,17 @@ class Treffer:
     hat_bewertung: bool = True
     punkte: float = 0.0
     ausstattung: list[str] = field(default_factory=list)
+    quelle: str = ""
+    # Lage des Hauses, nicht nur die Entfernung zur Baustelle: Zwei Quellen
+    # liefern denselben Gasthof unter leicht verschiedenen Namen, und dann
+    # entscheidet der Punkt auf der Karte, ob es dasselbe Haus ist.
+    lat: float = 0.0
+    lon: float = 0.0
+    # Was eine zweite Quelle zu demselben Haus sagt: Preisvorteil in Euro je
+    # Nacht und Zimmer, und woher die Bewertung stammt, wenn nicht von dort,
+    # wo gebucht wird.
+    preisvorteil: float = 0.0
+    bewertung_quelle: str = ""
 
     @property
     def geeignet(self) -> bool:
@@ -316,6 +341,223 @@ def als_iso(wert: str | date) -> str:
 
 def als_deutsch(wert: str | date) -> str:
     return _als_datum(wert).strftime(DATUMSFORMAT)
+
+
+# --- Mehrere Quellen ------------------------------------------------------
+
+
+def _euro(wert) -> float:
+    """Holt die Zahl aus Angaben wie "1.257€", "564 EUR" oder 564.0.
+
+    Trivago liefert Preise als Text mit Tausenderpunkt und Währungszeichen.
+    Ein stumpfes float() daran scheitert, und ein falsch gelesener Preis fällt
+    nicht auf, weil die Zahl plausibel aussieht.
+    """
+    if isinstance(wert, (int, float)):
+        return float(wert)
+    text = str(wert or "")
+    ziffern = "".join(c for c in text if c.isdigit() or c in ".,")
+    if not ziffern:
+        return 0.0
+    # Deutsche Schreibweise: Punkt trennt Tausender, Komma die Dezimalstellen.
+    if "," in ziffern:
+        ziffern = ziffern.replace(".", "").replace(",", ".")
+    elif ziffern.count(".") == 1 and len(ziffern.split(".")[1]) == 3:
+        ziffern = ziffern.replace(".", "")
+    try:
+        return float(ziffern)
+    except ValueError:
+        return 0.0
+
+
+def _ganzzahl(wert) -> int:
+    """Wie _euro, aber für Stückzahlen: "2,750" sind 2750 Bewertungen."""
+    if isinstance(wert, (int, float)):
+        return int(wert)
+    ziffern = "".join(c for c in str(wert or "") if c.isdigit())
+    return int(ziffern) if ziffern else 0
+
+
+def normalisiere_trivago(rohtreffer: list[dict]) -> list[dict]:
+    """Bringt Trivago-Treffer in dieselbe Form wie die von Booking.
+
+    Lohnt sich aus zwei Gründen. Erstens nennt Trivago je Haus das Portal mit
+    dem günstigsten Preis, und das ist nicht immer Booking. Zweitens, und das
+    wiegt schwerer: Trivago zählt die Bewertungen mehrerer Portale zusammen.
+    Die Villa Sulmana in Neckarsulm steht bei Booking ohne Bewertung und bei
+    Trivago mit 8,1 aus 430 Stimmen. Wer nur eine Quelle fragt, sortiert
+    Häuser aus, über die es längst ein Urteil gibt.
+    """
+    umgewandelt = []
+    for roh in rohtreffer:
+        ausstattung = [
+            teil.strip()
+            for teil in str(roh.get("top_amenities", "")).split(",")
+            if teil.strip()
+        ]
+        bewertung = _euro(roh.get("review_rating"))
+        portal = str(roh.get("advertisers", "")).strip()
+        eintrag = {
+            "name": roh.get("accommodation_name", "?"),
+            "id": 0,
+            "url": roh.get("accommodation_url", ""),
+            "price": {"book": _euro(roh.get("price_per_stay"))},
+            "facilities": ausstattung,
+            "location": {
+                "address": "",
+                "city_name": str(roh.get("country_city", "")).split(",")[0].strip(),
+                "coordinates": {
+                    "latitude": _zahl(roh.get("latitude")),
+                    "longitude": _zahl(roh.get("longitude")),
+                },
+            },
+            "quelle": f"Trivago/{portal}" if portal else "Trivago",
+        }
+        if bewertung:
+            eintrag["rating"] = {
+                "review_score": bewertung,
+                "number_of_reviews": _ganzzahl(roh.get("review_count")),
+                "stars": _ganzzahl(roh.get("hotel_rating")),
+            }
+        umgewandelt.append(eintrag)
+    return umgewandelt
+
+
+# Wörter, die in Hotelnamen stehen, ohne eines zu bezeichnen. Ohne diese
+# Liste gilt "Hotel Post" als dasselbe Haus wie "Hotel Adler", weil beide
+# "hotel" enthalten.
+NAMENSFUELLER = frozenset(
+    {
+        "hotel", "hotels", "gasthof", "gasthaus", "gastehaus", "gaestehaus",
+        "pension", "haus", "der", "die", "das", "zum", "zur", "am", "an",
+        "im", "in", "und", "mit", "bei", "garni", "resort", "spa", "inn",
+        "apartments", "apartment", "boardinghouse", "superior", "sterne",
+    }
+)
+
+
+def _namenswoerter(name: str) -> set[str]:
+    """Die tragenden Wörter eines Hotelnamens, klein und ohne Umlaute.
+
+    "Hotel Gasthof Zum Rössle" wird zu {"roessle"}. Damit trifft es auch das
+    "Rössle" einer anderen Quelle, ohne jedes andere Haus mit "Hotel" im
+    Namen mitzunehmen.
+    """
+    worte = {_normalisiere(w) for w in str(name).replace("-", " ").split()}
+    tragend = {w for w in worte if w and w not in NAMENSFUELLER and len(w) > 2}
+    # Besteht der Name nur aus Füllwörtern, ist jedes Wort wieder tragend.
+    return tragend or {w for w in worte if w}
+
+
+def zusammenfuehren(treffer: list[Treffer]) -> list[Treffer]:
+    """Fasst dasselbe Haus aus mehreren Quellen zu einem Eintrag zusammen.
+
+    Behalten wird der günstigere Preis und die Bewertung mit der breiteren
+    Grundlage, also der höheren Stimmenzahl. Nicht die bessere Note: Das wäre
+    Schönrechnen. Was von woanders kommt, steht in der Tabelle dabei.
+    """
+    gruppen: list[list[Treffer]] = []
+    for kandidat in treffer:
+        for gruppe in gruppen:
+            erster = gruppe[0]
+            wenn_bekannt = (
+                kandidat.lat and kandidat.lon and erster.lat and erster.lon
+            )
+            nah = (
+                luftlinie_km(kandidat.lat, kandidat.lon, erster.lat, erster.lon) < 0.2
+                if wenn_bekannt
+                else False
+            )
+            if nah and _namenswoerter(kandidat.name) & _namenswoerter(erster.name):
+                gruppe.append(kandidat)
+                break
+        else:
+            gruppen.append([kandidat])
+
+    ergebnis = []
+    for gruppe in gruppen:
+        guenstigst = min(
+            (g for g in gruppe if g.preis_pro_nacht > 0),
+            key=lambda g: g.preis_pro_nacht,
+            default=gruppe[0],
+        )
+        teuerst = max(
+            (g for g in gruppe if g.preis_pro_nacht > 0),
+            key=lambda g: g.preis_pro_nacht,
+            default=gruppe[0],
+        )
+        gewinner = guenstigst
+        gewinner.preisvorteil = round(
+            teuerst.preis_pro_nacht - guenstigst.preis_pro_nacht, 2
+        )
+
+        # Bewertung aus der Quelle mit den meisten Stimmen.
+        bewertet = [g for g in gruppe if g.hat_bewertung]
+        if bewertet:
+            breiteste = max(bewertet, key=lambda g: g.anzahl_bewertungen)
+            if breiteste is not gewinner:
+                gewinner.bewertung = breiteste.bewertung
+                gewinner.anzahl_bewertungen = breiteste.anzahl_bewertungen
+                gewinner.hat_bewertung = True
+                gewinner.bewertung_quelle = breiteste.quelle or "andere Quelle"
+
+        # Ausstattung aus allen Quellen, damit das Parkurteil die beste
+        # verfügbare Angabe nutzt.
+        alle = []
+        for g in gruppe:
+            for a in g.ausstattung:
+                if a not in alle:
+                    alle.append(a)
+        gewinner.ausstattung = alle
+        gewinner.park = beurteile_parkplatz(alle)
+        ergebnis.append(gewinner)
+    return ergebnis
+
+
+def nachpunkten(
+    treffer: list[Treffer], baustelle: dict, kriterien: dict | None = None
+) -> list[Treffer]:
+    """Punktet und sortiert eine zusammengefasste Liste neu.
+
+    Nach dem Zusammenführen trägt ein Haus den günstigeren Preis und
+    vielleicht eine andere Bewertung als beim ersten Punkten. Ohne diesen
+    Schritt steht in der Zeile der neue Preis und in der P/L-Spalte die
+    Punktzahl zum alten.
+    """
+    kriterien = kriterien or lade_kriterien()
+    max_entfernung = _zahl(
+        baustelle.get("max_entfernung_km") or kriterien.get("max_entfernung_km"), 25.0
+    )
+    max_nacht = _zahl(
+        baustelle.get("max_preis_pro_nacht")
+        if baustelle.get("max_preis_pro_nacht") is not None
+        else kriterien.get("max_preis_pro_nacht"),
+        0.0,
+    )
+    min_bewertung = _zahl(kriterien.get("mindestbewertung"), 8.0)
+
+    # Der Ausschlussgrund kann hinfallig geworden sein: Ein Haus, das bei der
+    # einen Quelle über dem Preislimit lag oder unbewertet war, erfüllt mit
+    # den Angaben der anderen Quelle vielleicht beides.
+    for t in treffer:
+        gruende = []
+        if t.entfernung_km > max_entfernung:
+            gruende.append(
+                f"{t.entfernung_km:.1f} km, mehr als {max_entfernung:.0f} km"
+            )
+        if t.hat_bewertung and t.bewertung < min_bewertung:
+            gruende.append(f"Bewertung {t.bewertung:.1f} unter {min_bewertung:.1f}")
+        if max_nacht and t.preis_pro_nacht > max_nacht:
+            gruende.append(
+                f"{t.preis_pro_nacht:.0f} EUR/Nacht über Limit {max_nacht:.0f} EUR"
+            )
+        if t.park.status == "kritisch":
+            gruende.append(f"Parken: {t.park.hinweis}")
+        t.ausschluss = "; ".join(gruende)
+
+    _punkte_vergeben(treffer, kriterien, max_entfernung, max_nacht)
+    treffer.sort(key=lambda t: (not t.geeignet, -t.punkte))
+    return treffer
 
 
 def auswerten(
@@ -416,6 +658,9 @@ def auswerten(
                 ausschluss="; ".join(gruende),
                 hat_bewertung=hat_bewertung,
                 ausstattung=list(ausstattung),
+                quelle=roh.get("quelle", "Booking"),
+                lat=_zahl(h_koord.get("latitude")),
+                lon=_zahl(h_koord.get("longitude")),
             )
         )
 
@@ -488,12 +733,15 @@ def uebersicht(treffer: list[Treffer], anzahl: int = 5) -> str:
     if not geeignete:
         return _keine_treffer(treffer)
 
-    zeilen = [
-        "| # | Hotel | Entfernung | EUR/Nacht | Bewertung | P/L | Parkplatz |",
-        "|---|---|---|---|---|---|---|",
-    ]
+    mehrquellig = any(t.quelle not in ("", "Booking") for t in geeignete)
+    kopf = "| # | Hotel | Entfernung | EUR/Nacht | Bewertung | P/L | Parkplatz |"
+    trenner = "|---|---|---|---|---|---|---|"
+    if mehrquellig:
+        kopf += " Buchen über |"
+        trenner += "---|"
+    zeilen = [kopf, trenner]
     for nr, t in enumerate(geeignete, 1):
-        zeilen.append(
+        zeile = (
             f"| {nr} | [{t.name}]({t.url}) | {t.entfernung_km:.1f} km "
             f"(ca. {t.fahrzeit_min} min) | {t.preis_pro_nacht:.2f} | "
             + (f"{t.bewertung:.1f} ({t.anzahl_bewertungen})" if t.hat_bewertung
@@ -501,6 +749,9 @@ def uebersicht(treffer: list[Treffer], anzahl: int = 5) -> str:
             + f" | {t.punkte:.0f} | "
             f"{t.park.zeichen} {t.park.hinweis} |"
         )
+        if mehrquellig:
+            zeile += f" {t.quelle or 'Booking'} |"
+        zeilen.append(zeile)
 
     aussortiert = [t for t in treffer if not t.geeignet]
     if aussortiert:
@@ -519,6 +770,24 @@ def uebersicht(treffer: list[Treffer], anzahl: int = 5) -> str:
         "Nähe zur Baustelle, Preis, Bewertung und Parkplatz. Platz 1 hat davon "
         "das beste."
     )
+    gespart = [t for t in geeignete if t.preisvorteil >= 1.0]
+    if gespart:
+        zeilen.append(
+            "Preisvorteil gegenüber der teuersten Quelle für dasselbe Haus: "
+            + ", ".join(
+                f"{t.name} {t.preisvorteil:.2f} EUR je Zimmer und Nacht"
+                for t in gespart
+            )
+            + "."
+        )
+    fremd = [t for t in geeignete if t.bewertung_quelle]
+    if fremd:
+        zeilen.append(
+            "Bewertung aus der Quelle mit den meisten Stimmen: "
+            + ", ".join(f"{t.name} über {t.bewertung_quelle}" for t in fremd)
+            + ". Dort wird nicht zwingend gebucht, die Note hat nur die "
+            "breitere Grundlage."
+        )
     if any(not t.hat_bewertung for t in geeignete):
         zeilen.append(
             "Häuser ohne Bewertung sind nicht schlecht bewertet, sondern noch "

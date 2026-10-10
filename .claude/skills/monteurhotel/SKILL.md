@@ -56,14 +56,29 @@ Fehlt der Datenordner, meldet sich das Skript. Dann nicht behelfsmäßig
 weiterarbeiten: Die Stammdaten liegen auf Dianas Rechner, eine Cloud-Session
 sieht sie nicht.
 
-### 2. Live suchen
+### 2. Live suchen, und zwar zweigleisig
 
-Dafür das Hotelsuch-Werkzeug der Session nehmen, das nach Koordinaten,
-Zeitraum und Ausstattung sucht und die Verfügbarkeit mitliefert (Booking,
-sonst Trivago oder Tripadvisor). Den Werkzeugnamen nicht aus diesem Text
-übernehmen: Er trägt je nach Session ein anderes Präfix. Erst die verfügbaren
-Werkzeuge durchsehen, dann das passende aufrufen. Ist keines da, sagen statt
-schätzen; die Verfügbarkeit ist der Kern der Sache.
+**Immer Booking und Trivago, nicht nur eines.** Die Werkzeugnamen nicht aus
+diesem Text übernehmen, sie tragen je nach Session ein anderes Präfix: erst
+die verfügbaren Werkzeuge durchsehen, dann die passenden aufrufen. Beide
+Suchen gehen parallel mit denselben Koordinaten und demselben Zeitraum raus.
+Ist keine Quelle verfügbar, sagen statt schätzen; die Verfügbarkeit ist der
+Kern der Sache.
+
+Warum zwei Quellen, mit Beleg aus Neckarsulm:
+
+| | Booking | Trivago |
+|---|---|---|
+| Villa Sulmana | ohne Bewertung | 8,1 aus 430 Stimmen |
+| Warum ins Hotel | 7,1 aus 125 Stimmen | 8,1 aus 307 Stimmen, 14,60 EUR billiger über Agoda |
+| Welcome Hotel | 8,7 aus 1409 | 8,9 aus 2750 |
+
+Trivago zählt die Bewertungen mehrerer Portale zusammen und nennt je Haus das
+günstigste. Der Preisvorteil liegt bei wenigen Prozent, die Bewertungslücke
+wiegt schwerer: Ein Haus, das bei Booking unbewertet ist oder knapp unter der
+Grenze liegt, fällt sonst aus der Liste, obwohl es längst gut bewertet ist.
+Tripadvisor taugt als dritte Quelle nur bedingt, es rechnet in Bubbles von 0
+bis 5 und lässt sich nicht ohne Umrechnung gegen die 8,0-Grenze stellen.
 
 Parameter aus dem Auftrag:
 
@@ -92,13 +107,29 @@ Zu wenige Treffer? Erst den Radius erhöhen, dann den Preis, zuletzt die
 Bewertung. Die Bewertung ist das Kriterium, das Diana ausdrücklich gesetzt
 hat, also das letzte, das fällt, und ein Absenken wird gesagt.
 
-Antwort als JSON ins Scratchpad schreiben, unverändert.
+Trivago nimmt eigene Parameter: `arrival`/`departure` statt der Datumsfelder,
+`rooms` und `adults`, `country: DE`, `currency: EUR`, `language: DE_DE`, dazu
+`filters` mit `breakfastIncluded` und `parking` und `review_rating` mit
+`rating80`. Liefert es mit Frühstücksfilter zu wenig, einmal ohne nachfassen:
+Trivago kennt den Haken nicht bei jedem Haus, auch wenn Frühstück dabei ist.
+
+Beide Antworten als JSON ins Scratchpad schreiben, unverändert und in
+getrennte Dateien.
 
 ### 3. Auswerten
 
 ```bash
-python3 werkzeuge/hotelsuche.py auswerten <auftrag.json> <treffer.json> --ids
+python3 werkzeuge/hotelsuche.py auswerten <auftrag.json> \
+    <booking.json> <trivago.json> --ids
 ```
+
+Das Format erkennt das Skript selbst, Trivago-Treffer rechnet es um. Bei mehr
+als einer Datei fasst es dasselbe Haus zu einer Zeile zusammen: günstigerer
+Preis, Bewertung aus der Quelle mit den meisten Stimmen, nicht mit der besten
+Note. Die Tabelle trägt dann eine Spalte, über welches Portal zu buchen ist,
+und nennt darunter den Preisvorteil. Steht dort ein anderes Portal als
+Booking, gehört der Hinweis in den Vorschlag: Diana bucht dort, nicht bei
+Booking.
 
 Liefert die Rangfolge aus Entfernung, Preis, Bewertung und Parkplatz, dazu
 die Aussortierten mit Grund. Die Tabelle nicht neu erfinden, sondern
