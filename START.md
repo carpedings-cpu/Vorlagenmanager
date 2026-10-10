@@ -56,8 +56,21 @@ Ab jetzt reicht in Claude Code, geöffnet auf diesem Repo, ein Satz:
 
 > Hotel für GAZ, 28.09. bis 02.10., MS HN KH
 
-Der Skill macht den Rest: Stammdaten auflösen, suchen, Entfernungen rechnen,
-drei Vorschläge zeigen. Nach der Buchung festhalten:
+Der Skill macht den Rest: Stammdaten auflösen, bei Booking und Trivago
+suchen, Entfernungen rechnen, drei Vorschläge zeigen und für die Empfehlung
+gleich die Zimmeranfrage als Mailentwurf in dein Postfach legen. Gebucht wird
+direkt beim Hotel, nicht über das Portal.
+
+Schreibt das Hotel zurück, sagst du Go, und die Kostenübernahme liegt als
+Antwortentwurf mit PDF im selben Verlauf. Abgeschickt wird nichts ohne dich.
+
+Damit Anfrage und Kostenübernahme vollständig sind, gehört in
+`hotels/kriterien.yaml` der Block `absender:` mit Firmenanschrift,
+Registergericht, Geschäftsführung und deiner Durchwahl. Vorlage dafür steht
+in `stammdaten/kriterien.yaml`. Logo und Unterschrift als Bilddatei in den
+Ordner `hotels/` legen und dort eintragen.
+
+Nach der Buchung festhalten:
 
 ```bash
 python3 werkzeuge/hotelsuche.py buchen <auftrag.json> --hotel "<Name>" \

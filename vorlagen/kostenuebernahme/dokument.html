@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Kostenübernahmeerklärung {{hotel}}</title>
+<style>
+  /* Roboto Condensed, SIL Open Font License 1.1, siehe schrift/OFL.txt.
+     Fest eingebettet, damit das PDF ohne Netz gleich aussieht. Zwei statische
+     Schnitte statt der variablen Schrift: Die bettet Chromium komplett ins PDF,
+     und aus 30 KB werden 220 KB, die durch jeden Mailentwurf müssen. */
+  @font-face {
+    font-family: "Roboto Condensed";
+    font-style: normal;
+    font-weight: 300;
+    src: url({{schrift_light}}) format("woff");
+  }
+  @font-face {
+    font-family: "Roboto Condensed";
+    font-style: normal;
+    font-weight: 700;
+    src: url({{schrift_bold}}) format("woff");
+  }
+  @page { size: A4; margin: 0; }
+  :root {
+    --dunkel: #2d2926;
+    --braun: #6b5040;
+    --sand: #c8a882;
+    --sand-hell: #f4ede3;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #fff; }
+  body {
+    font-family: "Roboto Condensed", "Arial Narrow", Arial, sans-serif;
+    font-weight: 300;
+    color: var(--dunkel);
+    font-size: 10pt;
+    line-height: 1.4;
+  }
+  .seite {
+    width: 210mm;
+    min-height: 297mm;
+    padding: 14mm 20mm 28mm 25mm;
+    position: relative;
+  }
+  .kopf {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 2px solid var(--sand);
+    padding-bottom: 3mm;
+  }
+  .marke img { max-height: 16mm; max-width: 60mm; display: block; }
+  .wortmarke {
+    font-weight: 700;
+    font-size: 28pt;
+    letter-spacing: 1px;
+    color: var(--braun);
+    line-height: 1;
+  }
+  .wortmarke span { color: var(--sand); }
+  .absender-kopf {
+    text-align: right;
+    font-size: 8.5pt;
+    line-height: 1.4;
+    color: var(--braun);
+  }
+  .absender-kopf strong { color: var(--dunkel); font-weight: 700; }
+  .anschrift-zeile {
+    margin-top: 7mm;
+    font-size: 7.5pt;
+    color: var(--braun);
+    border-bottom: 0.5px solid var(--sand);
+    display: inline-block;
+    padding-bottom: 1mm;
+  }
+  .block {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 3mm;
+  }
+  .empfaenger { width: 85mm; }
+  .empfaenger strong { font-weight: 700; }
+  .bezug {
+    font-size: 8.5pt;
+    width: 65mm;
+  }
+  .bezug table { border-collapse: collapse; width: 100%; }
+  .bezug td { padding: 0.2mm 0; vertical-align: top; }
+  .bezug td:first-child { color: var(--braun); padding-right: 3mm; white-space: nowrap; }
+  h1 {
+    font-weight: 700;
+    font-size: 15pt;
+    color: var(--braun);
+    margin: 7mm 0 3mm;
+    letter-spacing: 0.3px;
+  }
+  h2 {
+    font-weight: 700;
+    font-size: 10.5pt;
+    color: var(--braun);
+    margin: 4mm 0 1.5mm;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+  }
+  p { margin: 0 0 2.2mm; }
+  table.daten {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 2mm 0 2mm;
+  }
+  table.daten td {
+    padding: 1.1mm 3mm;
+    border-bottom: 0.5px solid var(--sand);
+    vertical-align: top;
+  }
+  table.daten td:first-child {
+    width: 48mm;
+    color: var(--braun);
+    background: var(--sand-hell);
+  }
+  table.daten tr.summe td { font-weight: 700; border-bottom: 2px solid var(--sand); }
+  ul { margin: 0 0 3mm; padding-left: 5mm; }
+  li { margin-bottom: 0.8mm; }
+  .zweispaltig { display: flex; gap: 8mm; }
+  .zweispaltig > div { flex: 1; }
+  .gruss { margin-top: 5mm; }
+  .unterschrift { margin: 1mm 0; }
+  .unterschrift img { max-height: 16mm; max-width: 55mm; display: block; }
+  .ohne-unterschrift { font-size: 8pt; color: var(--braun); margin-top: 2mm; }
+  .fuss {
+    position: absolute;
+    left: 25mm;
+    right: 20mm;
+    bottom: 10mm;
+    border-top: 1px solid var(--sand);
+    padding-top: 2.5mm;
+    font-size: 7pt;
+    line-height: 1.45;
+    color: var(--braun);
+    display: flex;
+    justify-content: space-between;
+    gap: 6mm;
+  }
+  .fuss div { flex: 1; }
+</style>
+</head>
+<body>
+<div class="seite">
+
+  <div class="kopf">
+    <div class="marke">{{marke_html}}</div>
+    <div class="absender-kopf">{{web}}</div>
+  </div>
+
+  <div class="anschrift-zeile">{{firma}} · {{strasse}} · {{plz}} {{ort_firma}}</div>
+
+  <div class="block">
+    <div class="empfaenger">
+      <strong>{{hotel}}</strong><br>
+      {{hotel_adresse_html}}
+      <br>per E-Mail
+    </div>
+    <div class="bezug">
+      <table>
+        <tr><td>Datum</td><td>{{datum}}</td></tr>
+{{?bestaetigung}}
+        <tr><td>Ihre Buchung</td><td>{{bestaetigung}}</td></tr>
+{{/bestaetigung}}
+        <tr><td>Unser Zeichen</td><td>{{rechnungsvermerk}}</td></tr>
+        <tr><td>Kontakt</td><td>{{absender}}</td></tr>
+        <tr><td>Telefon</td><td>{{telefon}}</td></tr>
+        <tr><td>E-Mail</td><td>{{email}}</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <h1>Kostenübernahmeerklärung</h1>
+
+  <p>Sehr geehrte Damen und Herren,</p>
+  <p>hiermit bestätigt die {{firma}} die Übernahme der Kosten für die folgende
+  Buchung. Die Übernachtung erfolgt ausschließlich aus beruflichen Gründen im
+  Auftrag der {{firma}}.</p>
+
+  <table class="daten">
+    <tr><td>Gäste</td><td>{{gaeste_html}}</td></tr>
+    <tr><td>Zeitraum</td><td>Anreise {{anreise}}, Abreise {{abreise}} ({{naechte}} Nächte)</td></tr>
+    <tr><td>Zimmer</td><td>{{zimmer}} Einzelzimmer mit Dusche und WC</td></tr>
+    <tr><td>Vereinbarter Preis</td><td>{{preis}} EUR je Zimmer und Nacht inklusive Frühstück</td></tr>
+{{?parkplatz_zeile}}
+    <tr><td>Parkplatz</td><td>{{parkplatz_zeile}}</td></tr>
+{{/parkplatz_zeile}}
+    <tr class="summe"><td>Voraussichtlich gesamt</td><td>{{gesamt}} EUR</td></tr>
+  </table>
+
+  <div class="zweispaltig">
+    <div>
+      <h2>Übernommen</h2>
+      <p>Übernachtung im Einzelzimmer, Frühstück, Parkplatz am Haus sowie
+      Beherbergungs- oder Übernachtungsteuer, soweit sie anfällt.</p>
+    </div>
+    <div>
+      <h2>Nicht übernommen</h2>
+      <p>Getränke, Minibar, Speisen außer dem Frühstück, Telefon, Wäsche und
+      sonstige persönliche Ausgaben. Diese begleichen die Gäste vor Ort.</p>
+    </div>
+  </div>
+
+  <h2>Rechnung</h2>
+  <p>Bitte stellen Sie die Rechnung auf {{firma}}, {{strasse}}, {{plz}} {{ort_firma}}
+{{?ust_id}}
+  (USt-IdNr. {{ust_id}})
+{{/ust_id}}
+  aus und senden Sie sie an <strong>{{rechnung_email}}</strong>, mit dem Vermerk
+  „{{rechnungsvermerk}}“. Die Zahlung erfolgt per Überweisung nach Rechnungseingang.</p>
+  <p>Verschiebt sich der Aufenthalt, stimmen wir den neuen Zeitraum vorab mit
+  Ihnen ab. Für die tatsächlich in Anspruch genommenen Nächte gelten die
+  vereinbarten Konditionen.</p>
+
+  <div class="gruss">
+    <p>Freundliche Grüße</p>
+{{?unterschrift_html}}
+    <div class="unterschrift">{{unterschrift_html}}</div>
+{{/unterschrift_html}}
+    <div>{{absender}}<br>{{funktion}}, {{firma}}</div>
+{{?ohne_unterschrift}}
+    <div class="ohne-unterschrift">{{ohne_unterschrift}}</div>
+{{/ohne_unterschrift}}
+  </div>
+
+  <div class="fuss">
+    <div>{{firma}}<br>{{strasse}}<br>{{plz}} {{ort_firma}}</div>
+    <div>{{zentrale_zeile}}{{web}}</div>
+    <div>Sitz: {{ort_firma}}<br>{{register_html}}<br>{{ust_zeile}}</div>
+    <div>Geschäftsführung:<br>{{geschaeftsfuehrung}}</div>
+  </div>
+
+</div>
+</body>
+</html>

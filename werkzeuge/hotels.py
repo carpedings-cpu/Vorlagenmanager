@@ -73,7 +73,7 @@ def _pruefe_kuerzel(leute: list[dict]) -> None:
 
     Sonst gewinnt beim Nachschlagen still die letzte, und im Hotel liegt der
     falsche Mann. Zwei Nachnamen mit gleichem Anfangsbuchstaben reichen dafür
-    schon: Ivan Rusev und Ina Ruseva ergeben beide IR.
+    schon: Ivo Reiter und Iris Reiter ergeben beide IR.
     """
     gesehen: dict[str, str] = {}
     doppelt: list[str] = []

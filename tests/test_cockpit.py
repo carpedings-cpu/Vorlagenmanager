@@ -38,10 +38,10 @@ baustellen:
 MONTEURE = """
 monteure:
   - kuerzel: MS
-    name: Milenko Stanic
+    name: Max Muster
     fahrzeug: Sprinter
   - kuerzel: ZI
-    name: Diana Ziegler
+    name: Erika Beispiel
     buero: true
 """
 
@@ -73,7 +73,7 @@ class Generator(unittest.TestCase):
     def test_stammdaten_stehen_wirklich_drin(self):
         text = self._erzeugen()
         self.assertIn("Upbeat Berlin", text)
-        self.assertIn("Milenko Stanic", text)
+        self.assertIn("Max Muster", text)
 
     def test_baustelle_ohne_koordinaten_wird_uebersprungen(self):
         # Sie würde die Suche sonst auf Punkt null schicken

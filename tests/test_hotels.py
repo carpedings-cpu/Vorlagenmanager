@@ -432,23 +432,24 @@ class PauschaleNurBeiLangenAufenthalten(unittest.TestCase):
     """Bei vier Nächten nach einer Wochenpauschale zu fragen wirkt unbedacht."""
 
     def _anfrage(self, naechte_zahl):
-        from kern import ersetze_in_markdown, repowurzel
+        import hotelpost
 
-        werte = {
-            "ort": "Oberursel",
-            "anreise": "28.09.2026",
-            "abreise": "02.10.2026",
-            "naechte": str(naechte_zahl),
-            "zimmer": "3",
-            "fahrzeuge": "3",
-            "fruehstueck_ab": "06:00",
-            "pauschale": "ja" if naechte_zahl >= 5 else "",
-            "hinweis": "",
-            "absender": "Diana Ziegler",
-            "firma": "KPC GmbH",
+        auftrag = {
+            "baustelle": {"ort": "Oberursel", "kuerzel": "GAZ", "kurzname": "GAZ"},
+            "zeitraum": {
+                "anreise": "28.09.2026",
+                "abreise": "02.10.2026",
+                "naechte": naechte_zahl,
+            },
+            "zimmer": 3,
+            "fahrzeuge": 3,
+            "suche": {"fruehstueck_ab": "06:00"},
+            "pauschale_erfragen": naechte_zahl >= 5,
         }
-        vorlage = repowurzel() / "vorlagen" / "hotelanfrage" / "anfrage.md"
-        return ersetze_in_markdown(vorlage.read_text(encoding="utf-8"), werte)
+        betreff, text = hotelpost.anfrage(
+            auftrag, {"absender": {"name": "Diana Ziegler", "firma": "kpc GmbH"}}
+        )
+        return text
 
     def test_vier_naechte_ohne_pauschalenfrage(self):
         # Kleingeschrieben suchen: im Text steht "Monteurpauschale"
@@ -463,8 +464,8 @@ class PauschaleNurBeiLangenAufenthalten(unittest.TestCase):
         for anzahl in (4, 8):
             text = self._anfrage(anzahl)
             self.assertIn("Frühstück serviert", text)
-            self.assertIn("Parkmöglichkeit", text)
-            self.assertIn("Stornierung", text)
+            self.assertIn("Parkplatz am Haus", text)
+            self.assertIn("Stornobedingungen", text)
 
 
 class DoppelteKuerzel(unittest.TestCase):
@@ -487,15 +488,15 @@ class DoppelteKuerzel(unittest.TestCase):
             self._schreiben(tmp, """
 monteure:
   - kuerzel: IR
-    name: Ivan Rusev
+    name: Ivo Reiter
   - kuerzel: IR
-    name: Ina Ruseva
+    name: Iris Reiter
 """)
             with self.assertRaises(ValueError) as ctx:
                 lade_monteure()
             meldung = str(ctx.exception)
-            self.assertIn("Ivan Rusev", meldung)
-            self.assertIn("Ina Ruseva", meldung)
+            self.assertIn("Ivo Reiter", meldung)
+            self.assertIn("Iris Reiter", meldung)
 
     def test_gross_und_kleinschreibung_zaehlt_als_gleich(self):
         from hotels import lade_monteure
@@ -504,9 +505,9 @@ monteure:
             self._schreiben(tmp, """
 monteure:
   - kuerzel: ir
-    name: Ivan Rusev
+    name: Ivo Reiter
   - kuerzel: IR
-    name: Ina Ruseva
+    name: Iris Reiter
 """)
             with self.assertRaises(ValueError):
                 lade_monteure()
@@ -518,9 +519,9 @@ monteure:
             self._schreiben(tmp, """
 monteure:
   - kuerzel: IR
-    name: Ivan Rusev
+    name: Ivo Reiter
   - kuerzel: INR
-    name: Ina Ruseva
+    name: Iris Reiter
 """)
             self.assertEqual(len(lade_monteure()), 2)
 

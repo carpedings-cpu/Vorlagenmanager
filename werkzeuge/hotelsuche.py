@@ -7,7 +7,8 @@ muss: Stammdaten auflösen, Entfernungen rechnen, Kriterien anwenden.
 
     python3 werkzeuge/hotelsuche.py auftrag BHV 12.10.2026 16.10.2026 --monteure MK TS
     python3 werkzeuge/hotelsuche.py auswerten <auftrag.json> <treffer.json>
-    python3 werkzeuge/hotelsuche.py anfrage <auftrag.json> --hotel "Hotel Amaris"
+    python3 werkzeuge/hotelsuche.py anfrage <auftrag.json> --vergleichspreis 89
+    python3 werkzeuge/hotelsuche.py kostenuebernahme <auftrag.json> --hotel "Hotel Amaris" --preis 79
     python3 werkzeuge/hotelsuche.py buchen <auftrag.json> --hotel "Hotel Amaris" --preis 89.50
     python3 werkzeuge/hotelsuche.py baustellen
     python3 werkzeuge/hotelsuche.py monteure
@@ -24,6 +25,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 import hotels  # noqa: E402
+import hotelpost  # noqa: E402
 from kern import ersetze_in_markdown, repowurzel  # noqa: E402
 
 
@@ -61,7 +63,13 @@ def _auftrag_bauen(args: argparse.Namespace) -> dict:
             ),
             1,
         )
-    direkt_ab = hotels._zahl(kriterien.get("direktanfrage_ab_naechten"), 5)
+    # Direkt beim Hotel ist der Standard. Nur wenn die Anreise so nah ist,
+    # dass eine Mail nicht rechtzeitig beantwortet wird, geht es übers Portal.
+    vorlauf_tage = (hotels._als_datum(args.von) - date.today()).days
+    mindestvorlauf = int(
+        hotels._zahl(kriterien.get("direktbuchung_mindestvorlauf_tage"), 2)
+    )
+    pauschale_ab = hotels._zahl(kriterien.get("pauschale_ab_naechten"), 5)
 
     return {
         "baustelle": {
@@ -109,7 +117,12 @@ def _auftrag_bauen(args: argparse.Namespace) -> dict:
         },
         "heimweg_km": heimweg_km,
         "betriebssitz": sitz.get("ort", ""),
-        "direktanfrage_noetig": anzahl_naechte >= direkt_ab,
+        "direktbuchung": vorlauf_tage >= mindestvorlauf,
+        "vorlauf_tage": vorlauf_tage,
+        "pauschale_erfragen": anzahl_naechte >= pauschale_ab,
+        # Zwei Mann in einem Sprinter brauchen einen Stellplatz, nicht zwei.
+        # Ohne Angabe ein Fahrzeug je Mann.
+        "fahrzeuge": args.fahrzeuge or len(besetzung) or zimmer,
         "bekannt": hotels.bekannte_hotels(baustelle)[:3],
     }
 
@@ -155,10 +168,15 @@ def _auftrag_zeigen(auftrag: dict) -> str:
             f"Heimweg:   {auftrag['heimweg_km']:.0f} km ab "
             f"{auftrag.get('betriebssitz') or 'Betriebssitz'}, einfache Strecke"
         )
-    if auftrag["direktanfrage_noetig"]:
+    if auftrag.get("direktbuchung", True):
         zeilen.append(
-            f"Direktanfrage: ja – {z['naechte']} Nächte, "
-            "Wochenpauschale beim Hotel erfragen"
+            "Buchung:   direkt beim Hotel, Anfrage als Mailentwurf"
+            + (" mit Frage nach Wochenpauschale" if auftrag.get("pauschale_erfragen") else "")
+        )
+    else:
+        zeilen.append(
+            f"Buchung:   Portal oder Anruf – Anreise in {auftrag.get('vorlauf_tage', 0)} "
+            "Tag(en), zu knapp für eine Mailanfrage"
         )
     if auftrag["bekannt"]:
         zeilen.append("Schon gebucht an dieser Baustelle:")
@@ -257,60 +275,86 @@ def befehl_auswerten(args: argparse.Namespace) -> int:
     return 0
 
 
-def befehl_anfrage(args: argparse.Namespace) -> int:
-    """Füllt den Mailtext für die Direktanfrage beim Hotel.
+def _ausgeben(betreff: str, text: str, args: argparse.Namespace, extra: dict | None = None) -> None:
+    """Gibt eine Mail als Text oder als JSON für den Postfachentwurf aus."""
+    if getattr(args, "json", None):
+        daten = {"an": args.an or "", "betreff": betreff, "text": text}
+        daten.update(extra or {})
+        ziel = Path(args.json)
+        ziel.parent.mkdir(parents=True, exist_ok=True)
+        ziel.write_text(json.dumps(daten, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"Mail als JSON: {ziel}")
+    else:
+        print(f"Betreff: {betreff}\n")
+        print(text)
 
-    Lohnt sich ab etwa fünf Nächten: Wochen- und Monteurpauschalen liegen
-    regelmäßig unter dem Portalpreis. Die beiden Fragen, an denen eine Buchung
-    scheitert - Frühstückszeit und Storno - stehen ohnehin in keinem Portal und
-    sind hier gleich mit drin.
+
+def befehl_anfrage(args: argparse.Namespace) -> int:
+    """Zimmeranfrage für die Direktbuchung beim Hotel.
+
+    Der Standardweg, nicht mehr nur ab fünf Nächten: Ohne Portal spart das Haus
+    die Provision, und die Fragen, an denen eine Buchung scheitert, stehen in
+    keinem Portal. Frühstückszeit, Parkplatz, Storno.
     """
     auftrag = json.loads(Path(args.auftrag).read_text(encoding="utf-8"))
     kriterien = hotels.lade_kriterien()
-    absender = kriterien.get("absender") or {}
-
-    fahrzeuge = {m.get("fahrzeug", "") for m in auftrag["besetzung"] if m.get("fahrzeug")}
-
-    werte = {
-        "hotel": args.hotel or "",
-        "ort": auftrag["baustelle"].get("ort")
-        or auftrag["baustelle"].get("kurzname", ""),
-        "anreise": auftrag["zeitraum"]["anreise"],
-        "abreise": auftrag["zeitraum"]["abreise"],
-        "naechte": str(auftrag["zeitraum"]["naechte"]),
-        "zimmer": str(auftrag["zimmer"]),
-        "fahrzeuge": str(auftrag["zimmer"]),
-        "fruehstueck_ab": auftrag["suche"].get("fruehstueck_ab") or "6:00",
-        # Eine Wochenpauschale bei vier Nächten zu erfragen wirkt unbedacht.
-        # Der Absatz erscheint erst ab der Dauer, ab der sie sich lohnt.
-        "pauschale": "ja"
-        if auftrag["zeitraum"]["naechte"]
-        >= hotels._zahl(kriterien.get("direktanfrage_ab_naechten"), 5)
-        else "",
-        "hinweis": args.hinweis or "",
-        "absender": args.absender or absender.get("name", ""),
-        "firma": args.firma or absender.get("firma", ""),
-    }
-    if fahrzeuge:
-        werte["fahrzeuge"] = f"{auftrag['zimmer']} ({', '.join(sorted(fahrzeuge))})"
-
-    vorlage = repowurzel() / "vorlagen" / "hotelanfrage" / "anfrage.md"
-    text = ersetze_in_markdown(vorlage.read_text(encoding="utf-8"), werte)
-
-    if not werte["absender"] or not werte["firma"]:
+    betreff, text = hotelpost.anfrage(
+        auftrag, kriterien, vergleichspreis=args.vergleichspreis, hinweis=args.hinweis or ""
+    )
+    fehlend = hotelpost.fehlende_angaben(hotelpost.absender(kriterien), hotelpost.PFLICHT_ANFRAGE)
+    if fehlend:
         print(
-            "Hinweis: Absender und Firma fehlen. In hotels/kriterien.yaml unter "
-            "absender: eintragen oder mit --absender/--firma mitgeben.\n",
+            "Hinweis: Im Absender fehlt " + ", ".join(fehlend)
+            + ". In hotels/kriterien.yaml unter absender: eintragen.\n",
             file=sys.stderr,
         )
+    if not auftrag.get("direktbuchung", True):
+        print(
+            f"Hinweis: Anreise in {auftrag.get('vorlauf_tage', 0)} Tag(en). Bis die "
+            "Antwort da ist, kann das Zimmer weg sein. Besser anrufen.\n",
+            file=sys.stderr,
+        )
+    _ausgeben(betreff, text, args, {"hotel": args.hotel or ""})
+    return 0
 
-    if args.ziel:
-        ziel = Path(args.ziel)
-        ziel.parent.mkdir(parents=True, exist_ok=True)
-        ziel.write_text(text, encoding="utf-8")
-        print(f"Anfrage: {ziel}")
-    else:
-        print(text)
+
+def befehl_kostenuebernahme(args: argparse.Namespace) -> int:
+    """Kostenübernahmeerklärung als PDF plus Begleitmail.
+
+    Erst nach der Zusage des Hotels: Der Preis ist der bestätigte, nicht der
+    aus der Suche, und die Namen der Gäste stehen fest.
+    """
+    auftrag = json.loads(Path(args.auftrag).read_text(encoding="utf-8"))
+    ergebnis = hotelpost.kostenuebernahme(
+        auftrag,
+        hotel=args.hotel,
+        preis=args.preis,
+        gaeste=args.gaeste,
+        bestaetigung=args.bestaetigung or "",
+        hotel_adresse=args.hotel_adresse or "",
+        parkplatz_je_nacht=args.parkplatz or 0.0,
+    )
+    ordner = Path(args.ziel) if args.ziel else hotels.hotelordner() / "post"
+    ordner.mkdir(parents=True, exist_ok=True)
+    html_pfad = ordner / f"{ergebnis['dateiname']}.html"
+    html_pfad.write_text(ergebnis["html"], encoding="utf-8")
+    pdf_pfad = ordner / f"{ergebnis['dateiname']}.pdf"
+    hat_pdf = hotelpost.html_zu_pdf(ergebnis["html"], pdf_pfad)
+
+    for hinweis in ergebnis["hinweise"]:
+        print(f"Hinweis: {hinweis}", file=sys.stderr)
+    print(f"Dokument: {pdf_pfad if hat_pdf else html_pfad}")
+    if not hat_pdf:
+        print(
+            "Kein PDF: Playwright fehlt. Die HTML-Datei im Browser öffnen und "
+            "als PDF drucken.",
+            file=sys.stderr,
+        )
+    print(f"Gesamt voraussichtlich: {hotelpost.euro(ergebnis['gesamt'])} EUR\n")
+    _ausgeben(
+        ergebnis["betreff"], ergebnis["text"], args,
+        {"anhang": str(pdf_pfad if hat_pdf else html_pfad), "hotel": args.hotel},
+    )
     return 0
 
 
@@ -403,6 +447,10 @@ def main() -> int:
     p_auftrag.add_argument("bis", help="Abreise, TT.MM.JJJJ")
     p_auftrag.add_argument("--monteure", nargs="*", default=[], help="Kürzel")
     p_auftrag.add_argument("--zimmer", type=int, help="falls ohne Monteurliste")
+    p_auftrag.add_argument(
+        "--fahrzeuge", type=int,
+        help="Stellplätze; ohne Angabe einer je Mann",
+    )
     p_auftrag.add_argument("--json", help="Auftrag zusätzlich als JSON ablegen")
     p_auftrag.set_defaults(funktion=befehl_auftrag)
 
@@ -417,14 +465,37 @@ def main() -> int:
     p_aus.add_argument("--ids", action="store_true", help="Hotel-IDs mit ausgeben")
     p_aus.set_defaults(funktion=befehl_auswerten)
 
-    p_anfrage = unter.add_parser("anfrage", help="Mailtext für die Direktanfrage")
+    p_anfrage = unter.add_parser("anfrage", help="Zimmeranfrage für die Direktbuchung")
     p_anfrage.add_argument("auftrag", help="JSON aus dem Befehl auftrag")
-    p_anfrage.add_argument("--hotel", help="nur zur Ablage, steht nicht im Text")
-    p_anfrage.add_argument("--absender", help="überschreibt kriterien.yaml")
-    p_anfrage.add_argument("--firma", help="überschreibt kriterien.yaml")
+    p_anfrage.add_argument("--hotel", help="Name des Hotels, steht nur in der JSON-Ausgabe")
+    p_anfrage.add_argument("--an", help="Mailadresse des Hotels, für die JSON-Ausgabe")
+    p_anfrage.add_argument(
+        "--vergleichspreis", type=float,
+        help="Portalpreis je Zimmer und Nacht; steht als Verhandlungsbasis in der Mail",
+    )
     p_anfrage.add_argument("--hinweis", help="Zusatz ans Hotel, z. B. späte Anreise")
-    p_anfrage.add_argument("--ziel", help="Datei statt Ausgabe auf der Konsole")
+    p_anfrage.add_argument("--json", help="Betreff und Text als JSON ablegen")
     p_anfrage.set_defaults(funktion=befehl_anfrage)
+
+    p_kosten = unter.add_parser(
+        "kostenuebernahme", help="Kostenübernahme als PDF, nach Zusage des Hotels"
+    )
+    p_kosten.add_argument("auftrag", help="JSON aus dem Befehl auftrag")
+    p_kosten.add_argument("--hotel", required=True)
+    p_kosten.add_argument(
+        "--preis", type=float, required=True,
+        help="vom Hotel bestätigter Preis je Zimmer und Nacht inkl. Frühstück",
+    )
+    p_kosten.add_argument("--gaeste", nargs="+", help="Namen; ohne Angabe aus dem Auftrag")
+    p_kosten.add_argument("--bestaetigung", help="Buchungsnummer des Hotels")
+    p_kosten.add_argument("--hotel-adresse", help="Straße, PLZ Ort, kommagetrennt")
+    p_kosten.add_argument(
+        "--parkplatz", type=float, help="Parkgebühr je Fahrzeug und Nacht, wenn extra"
+    )
+    p_kosten.add_argument("--an", help="Mailadresse des Hotels, für die JSON-Ausgabe")
+    p_kosten.add_argument("--ziel", help="Ordner für PDF; Standard hotels/post/")
+    p_kosten.add_argument("--json", help="Betreff, Text und Anhang als JSON ablegen")
+    p_kosten.set_defaults(funktion=befehl_kostenuebernahme)
 
     p_buchen = unter.add_parser("buchen", help="Buchung in der Historie festhalten")
     p_buchen.add_argument("auftrag", help="JSON aus dem Befehl auftrag")

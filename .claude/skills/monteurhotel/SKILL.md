@@ -1,6 +1,6 @@
 ---
 name: monteurhotel
-description: Findet Hotels mit verfügbaren Einzelzimmern in der Nähe einer Baustelle für Monteure - Einzelzimmer mit Dusche/WC, Frühstück, Parkplatz am Haus, gut bewertet. Nutze diesen Skill IMMER wenn Diana eine Übernachtung für Monteure braucht. Auch triggern bei "Hotel für Baustelle X", "Übernachtung für die Monteure", "Zimmer für KW 41", "wo schlafen die Jungs in Bremerhaven", "Monteurzimmer suchen", "Hotel buchen für Montage". Ebenso nutzen, wenn eine neue Baustelle oder ein neuer Monteur in die Stammdaten soll, wenn eine Anfrage ans Hotel geschrieben werden soll, oder wenn eine Buchung in der Historie festgehalten wird.
+description: Findet Hotels mit verfügbaren Einzelzimmern in der Nähe einer Baustelle für Monteure - Einzelzimmer mit Dusche/WC, Frühstück, Parkplatz am Haus, gut bewertet. Nutze diesen Skill IMMER wenn Diana eine Übernachtung für Monteure braucht. Auch triggern bei "Hotel für Baustelle X", "Übernachtung für die Monteure", "Zimmer für KW 41", "wo schlafen die Jungs in Bremerhaven", "Monteurzimmer suchen", "Hotel buchen für Montage". Ebenso nutzen, wenn eine neue Baustelle oder ein neuer Monteur in die Stammdaten soll, wenn eine Anfrage ans Hotel geschrieben werden soll, wenn das Hotel zugesagt hat und eine Kostenübernahme raus muss ("Hotel hat bestätigt", "Go für die Kostenübernahme", "Kostenübernahme fürs Hotel"), oder wenn eine Buchung in der Historie festgehalten wird.
 ---
 
 # Monteurhotel
@@ -170,21 +170,84 @@ dessen Parkplatzlage ungeklärt ist, ohne das dazuzuschreiben.
 War an dieser Baustelle schon etwas gebucht und ist es wieder frei, gehört das
 an den Anfang: bekannter Ablauf, bekannte Anfahrt, keine Überraschung.
 
-### 6. Buchen oder anfragen
+### 6. Direkt beim Hotel anfragen, als Mailentwurf
 
-Bis vier Nächte reicht der Buchungslink, Diana bucht selbst.
+**Direkt buchen ist der Standard.** Portale nehmen dem Hotel 15 bis 18 Prozent
+Provision ab, und seit dem BGH-Urteil von 2021 darf es direkt günstiger
+anbieten. Die Anfrage nennt den Portalpreis, damit das Haus weiß, was es
+schlagen muss.
 
-Ab fünf Nächten setzt der Auftrag `direktanfrage_noetig`. Dann zusätzlich:
+Ausnahme: Zeigt der Auftrag `Buchung: Portal oder Anruf`, ist die Anreise zu
+nah für eine Mail (Grenze `direktbuchung_mindestvorlauf_tage`). Dann Link und
+Telefonnummer des Hauses liefern, keinen Entwurf.
 
-```bash
-python3 werkzeuge/hotelsuche.py anfrage <auftrag.json> --hotel "<Name>"
-```
+**Sobald du eine Anfrage empfiehlst, legst du den Entwurf an.** Nicht erst
+fragen, ob Diana einen will. Für die Empfehlung, bei knappem Markt zusätzlich
+für die zweite Wahl; dann dazusagen, dass einem der beiden abgesagt werden
+muss.
 
-Der Text fragt Pauschale, Frühstückszeit, Parkplatz, Storno und
-Sammelrechnung ab. Vor dem Versand zeigen. Formulierung anpassen mit dem Skill
-`diana-formulierungen`, nie ungefragt den Inhalt ändern.
+1. **Mailadresse des Hotels** aus dem Impressum der Hotelwebsite holen. Das
+   Impressum ist in Deutschland Pflicht und nennt eine Adresse, die jemand
+   liest. Keine Adresse raten, keine aus einem Portal übernehmen, das sind
+   Weiterleitungen. Findet sich keine, Entwurf ohne Empfänger und das sagen.
+   Telefonnummer gleich mitnehmen, für den Fall, dass die Antwort ausbleibt.
+2. **Text erzeugen**, mit dem günstigsten Portalpreis je Zimmer und Nacht für
+   genau dieses Haus aus der Auswertung:
 
-### 7. Festhalten
+   ```bash
+   python3 werkzeuge/hotelsuche.py anfrage <auftrag.json> \
+       --vergleichspreis <EUR> --an <hotel@...> --hotel "<Name>" \
+       --json <scratchpad>/anfrage_<kurz>.json
+   ```
+
+3. **Entwurf anlegen** mit dem Gmail-Werkzeug der Session (`create_draft`):
+   Empfänger, Betreff und Text aus der JSON-Datei, Text als `body`, ohne
+   Markdown. Ist das verbundene Postfach nicht die Firmenadresse aus
+   `absender.email`, die Firmenadresse in CC: Dann liegt die Korrespondenz
+   auch im Firmenpostfach, und eine Antwort an alle kommt dort an.
+4. **Diana den Link zum Entwurf geben**, dazu was offen ist (Empfänger nicht
+   gefunden, Vergleichspreis fehlt).
+
+**Niemals abschicken.** Es gibt keinen Fall, in dem du eine Mail ans Hotel
+selbst versendest. Der Entwurf ist die Lieferung, Diana liest gegen und
+drückt auf Senden. Formulierung ändern nur auf Wunsch, mit dem Skill
+`diana-formulierungen`, den Inhalt nie ungefragt.
+
+Mitfahrer im selben Fahrzeug: Den Auftrag mit `--fahrzeuge` bauen. Zwei Mann
+in einem Sprinter brauchen einen Stellplatz, die Mail fragt sonst nach zwei.
+Die Fahrzeugart steht nicht in der Mail, die prüft Diana selbst.
+
+### 7. Kostenübernahme, erst nach Zusage und Go
+
+Die Kostenübernahme ist eine Zahlungszusage der Firma. Sie entsteht erst,
+wenn zwei Dinge vorliegen: **die Zusage des Hotels** mit freien Zimmern und
+Preis, und **Dianas Go**. Fehlt eines, nichts anlegen.
+
+1. **Antwort des Hotels lesen** im Postfach: bestätigter Preis je Zimmer und
+   Nacht, Buchungsnummer, Anschrift aus der Signatur, Parkgebühr falls extra.
+   Der Preis aus der Suche zählt nicht mehr, nur der bestätigte.
+2. **Gäste**: Namen aus dem Auftrag. Fehlt ein Nachname, fragen. Nie einen
+   Platzhalternamen in ein echtes Dokument schreiben.
+3. **Dokument erzeugen:**
+
+   ```bash
+   python3 werkzeuge/hotelsuche.py kostenuebernahme <auftrag.json> \
+       --hotel "<Name>" --preis <bestätigt> --bestaetigung "<Nr>" \
+       --hotel-adresse "<Straße>, <PLZ Ort>" --gaeste "<Name>" "<Name>" \
+       --an <hotel@...> --json <scratchpad>/kosten_<kurz>.json
+   ```
+
+   Ergebnis ist ein einseitiges PDF im KPC-Design unter `hotels/post/` und
+   der Begleittext. Hinweise auf stderr (fehlende Pflichtangaben nach § 35a
+   GmbHG, Gästezahl passt nicht zur Zimmerzahl) gehören in die Antwort an
+   Diana, nicht unter den Tisch.
+4. **Prüfen, bevor es ins Postfach geht**: eine Seite, Summe gleich Preis mal
+   Zimmer mal Nächte, Namen richtig geschrieben.
+5. **Antwortentwurf im selben Verlauf** anlegen: `create_draft` mit
+   `replyToMessageId` auf die Nachricht des Hotels, das PDF als Anhang
+   (base64, `application/pdf`). Wieder: nicht abschicken.
+
+### 8. Festhalten
 
 Nach der Buchung:
 
@@ -194,8 +257,10 @@ python3 werkzeuge/hotelsuche.py buchen <auftrag.json> --hotel "<Name>" \
 ```
 
 Das Fazit ist der eigentliche Wert der Historie. „Parkplatz eng, Frühstück
-erst ab 6:30" erspart beim nächsten Einsatz eine halbe Stunde Recherche. Wenn Diana nach dem Einsatz eine Rückmeldung
-gibt, nachtragen.
+erst ab 6:30" erspart beim nächsten Einsatz eine halbe Stunde Recherche. Wenn
+Diana nach dem Einsatz eine Rückmeldung gibt, nachtragen. Hat das Hotel
+direkt einen Preis unter dem Portal gemacht, gehört auch das ins Fazit: Beim
+nächsten Mal weiß man, dass es sich lohnt zu fragen.
 
 ## Neue Baustelle anlegen
 
@@ -225,8 +290,8 @@ Neue Monteure analog in `hotels/monteure.yaml`.
 **Kürzel müssen eindeutig sein.** Das Skript bricht sonst ab, und das ist
 Absicht: Zwei Leute mit demselben Kürzel würden beim Nachschlagen still
 denselben Eintrag liefern, und im Hotel läge der falsche Mann. Zwei Nachnamen
-mit gleichem Anfangsbuchstaben reichen dafür schon, etwa Ivan Rusev und Ina
-Ruseva. Im Zweifel nachfragen, wie die beiden sich in der
+mit gleichem Anfangsbuchstaben reichen dafür schon, etwa Ivo Reiter und Iris
+Reiter. Im Zweifel nachfragen, wie die beiden sich in der
 Leistungsfeststellungs-App eintragen, und danach richten.
 
 Anlegen kann Diana Monteure auch selbst im Cockpit unter Stammdaten. Die
@@ -280,7 +345,8 @@ ein Update überstehen. Einzelne Baustellen dürfen `max_entfernung_km`
 
 ## Was dieser Skill nicht macht
 
-Er bucht nicht selbst und gibt keine Zahlungsdaten ein. Er liefert geprüfte
-Vorschläge mit Link, gebucht wird von Hand. Und er erfindet keine
+Er bucht nicht selbst, gibt keine Zahlungsdaten ein und schickt keine Mail
+ab. Er liefert geprüfte Vorschläge, Anfragen und Kostenübernahmen als
+Entwürfe im Postfach, abgeschickt wird von Hand. Und er erfindet keine
 Verfügbarkeit: Steht im Ergebnis nichts Passendes, wird das gesagt, zusammen
 mit dem Kriterium, das man lockern müsste.

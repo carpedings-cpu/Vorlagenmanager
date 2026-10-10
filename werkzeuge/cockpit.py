@@ -96,7 +96,11 @@ def erzeuge(ziel: Path | None = None, artifact: bool = False) -> Path:
         "BAUSTELLEN": _baustellen(),
         "MONTEURE": _monteure(),
         "BUCHUNGEN": hotels.lade_buchungen(),
-        "KRITERIEN": hotels.lade_kriterien(),
+        # Ohne Absender: Name, Durchwahl und Mailadresse braucht die Seite
+        # nicht, und das Cockpit wird als Webseite veröffentlicht.
+        "KRITERIEN": {
+            k: v for k, v in hotels.lade_kriterien().items() if k != "absender"
+        },
         "STAND": date.today().strftime(hotels.DATUMSFORMAT),
     }
 

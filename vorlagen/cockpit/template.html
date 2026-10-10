@@ -488,10 +488,18 @@ function auftragZeichnen(){
   if(bst.hinweis) zeilen.push(`Hinweis Baustelle: ${bst.hinweis}`);
   besetzung.filter(m => m.hinweis).forEach(m => zeilen.push(`Hinweis ${m.kuerzel}: ${m.hinweis}`));
 
-  const abDirekt = zahlOder(KRITERIEN.direktanfrage_ab_naechten, 5);
-  if(n >= abDirekt){
-    zeilen.push("");
-    zeilen.push(`${n} Nächte: bitte zusätzlich die Direktanfrage ans Hotel erzeugen.`);
+  // Direkt beim Hotel buchen ist der Standard, das Portal nur der Notnagel
+  // bei kurzem Vorlauf: Bis eine Mail beantwortet ist, kann das Zimmer weg sein.
+  const vorlauf = Math.round((new Date(stelle("von").value) - new Date(new Date().toDateString())) / 86400000);
+  const mindestVorlauf = zahlOder(KRITERIEN.direktbuchung_mindestvorlauf_tage, 2);
+  zeilen.push("");
+  if(vorlauf >= mindestVorlauf){
+    zeilen.push("Buchung: direkt beim Hotel. Bitte für die Empfehlung gleich die Anfrage als Mailentwurf anlegen.");
+  } else {
+    zeilen.push(`Buchung: Anreise in ${vorlauf} Tag(en), zu knapp für eine Mailanfrage. Portal oder Anruf.`);
+  }
+  if(n >= zahlOder(KRITERIEN.pauschale_ab_naechten, 5)){
+    zeilen.push(`${n} Nächte: in der Anfrage nach Wochen- oder Monteurpauschale fragen.`);
   }
 
   // Der Auftrag muss für sich stehen: Er landet womöglich in einem frischen
@@ -679,7 +687,8 @@ function stammZeichnen(){
     ["Preislimit je Nacht", KRITERIEN.max_preis_pro_nacht ? KRITERIEN.max_preis_pro_nacht + " EUR" : "keins"],
     ["Radius", KRITERIEN.max_entfernung_km + " km"],
     ["Frühstück ab", KRITERIEN.fruehstueck_ab],
-    ["Direktanfrage ab", KRITERIEN.direktanfrage_ab_naechten + " Nächten"]
+    ["Direkt buchen ab", (KRITERIEN.direktbuchung_mindestvorlauf_tage ?? 2) + " Tagen Vorlauf"],
+    ["Pauschale erfragen ab", (KRITERIEN.pauschale_ab_naechten ?? 5) + " Nächten"]
   ];
   stelle("stammKrit").innerHTML = `<div class="tabellenrahmen"><table><tbody>${
     zeigen.map(([k,v]) => `<tr><td>${text(k)}</td><td><strong>${text(v)}</strong></td></tr>`).join("")

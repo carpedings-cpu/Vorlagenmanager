@@ -23,10 +23,19 @@ fruehstueck_ab: "06:00"        # früher Baustellenstart, wird pro Hotel geprüf
 freie_stornierung: true        # Termine verschieben sich
 wlan: true
 
-# --- Direktanfrage statt Portal --------------------------------------------
-# Ab dieser Aufenthaltsdauer lohnt die Anfrage beim Hotel: Monteur- und
-# Wochenpauschalen liegen regelmäßig unter dem Portalpreis.
-direktanfrage_ab_naechten: 5
+# --- Direkt beim Hotel buchen statt über ein Portal -------------------------
+# Portale nehmen dem Hotel 15 bis 18 Prozent Provision ab. Seit dem BGH-Urteil
+# von 2021 dürfen Hotels direkt günstiger anbieten als auf Booking, und viele
+# tun es, wenn man fragt. Die Direktanfrage ist deshalb der Standardweg.
+#
+# Ausnahme ist der kurze Vorlauf: Bis eine Mail beantwortet ist, kann das
+# Zimmer weg sein. Liegt die Anreise näher als diese Zahl Tage, wird über das
+# Portal gebucht oder angerufen.
+direktbuchung_mindestvorlauf_tage: 2
+
+# Ab dieser Dauer fragt die Anfrage zusätzlich nach Wochen- oder
+# Monteurpauschale. Bei drei Nächten danach zu fragen wirkt unbedacht.
+pauschale_ab_naechten: 5
 
 # --- Heimfahrt statt Hotel --------------------------------------------------
 # Bei Baustellen in Reichweite kann tägliches Heimfahren günstiger sein als
@@ -51,8 +60,29 @@ fahrzeit_zumutbar_h: 3.0
 # Weg zur Baustelle, nicht für hundert Kilometer über Land und Autobahn.
 ferntempo_kmh: 75
 
-# --- Absender der Direktanfrage --------------------------------------------
-# Gehört in die eigene Kopie im Datenordner, nicht ins Repo.
+# --- Absender für Anfrage und Kostenübernahme ------------------------------
+# Gehört in die eigene Kopie im Datenordner, nicht ins Repo: Name, Durchwahl
+# und Mailadresse sind Personendaten.
+#
+# Die Firmenangaben stehen so auch in der Fußzeile der Kostenübernahme. Auf
+# einem Geschäftsbrief einer GmbH sind Rechtsform, Sitz, Registergericht,
+# Registernummer und alle Geschäftsführer Pflicht (§ 35a GmbHG). Fehlt eines
+# davon, meldet sich das Skript.
 absender:
-  name: ""                     # z. B. "Diana Ziegler, Projektleitung"
-  firma: ""                    # z. B. "KPC GmbH, Fulda"
+  name: ""                     # z. B. "Diana Ziegler"
+  funktion: ""                 # z. B. "Projektleitung"
+  telefon: ""                  # Durchwahl, sonst die Zentrale
+  email: ""                    # Firmenadresse, an die das Hotel antwortet
+  firma: ""                    # z. B. "kpc GmbH"
+  strasse: ""
+  plz: ""
+  ort: ""
+  telefon_zentrale: ""
+  web: ""
+  registergericht: ""          # z. B. "Amtsgericht Fulda"
+  hrb: ""
+  ust_id: ""
+  geschaeftsfuehrung: ""       # alle Namen, durch Komma getrennt
+  rechnung_email: ""           # wohin das Hotel die Rechnung schickt
+  logo: ""                     # Dateiname im Ordner hotels/, z. B. logo.png
+  unterschrift: ""             # Bild der Unterschrift, z. B. unterschrift.png
